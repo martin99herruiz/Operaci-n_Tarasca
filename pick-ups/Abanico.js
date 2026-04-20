@@ -6,17 +6,23 @@ class Abanico extends THREE.Object3D {
         super();
 
         // =========================================================
-        // PARÁMETROS GENERALES
+        // TEXTURAS (SIN ARCHIVOS → SIN ERRORES)
         // =========================================================
-        this.numModulos = 11;                 // módulos con varilla+tela
-        this.numVarillas = this.numModulos + 1; // última varilla sin tela
+        const texturaColor = new THREE.CanvasTexture(this.crearTexturaTela());
+        const texturaRelieve = new THREE.CanvasTexture(this.crearRelieveTela());
 
-        this.anguloMin = THREE.MathUtils.degToRad(10);
+        // =========================================================
+        // PARÁMETROS
+        // =========================================================
+        this.numModulos = 12;
+        this.numVarillas = this.numModulos + 1;
+
+        this.anguloMin = THREE.MathUtils.degToRad(5);
         this.anguloMax = THREE.MathUtils.degToRad(170);
         this.anguloActual = THREE.MathUtils.degToRad(120);
 
-        this.radioTelaInterior = 0.95;
-        this.radioTelaExterior = 3.50;
+        this.radioInterior = 0.9;
+        this.radioExterior = 3.2;
 
         this.grosorVarilla = 0.045;
         this.grosorTela = 0.012;
@@ -24,255 +30,232 @@ class Abanico extends THREE.Object3D {
         this.tiempo = 0;
 
         // =========================================================
-        // ESTRUCTURA
-        // =========================================================
-        this.grupoOscilacion = new THREE.Object3D();
-        this.add(this.grupoOscilacion);
-
-        this.grupoAbanico = new THREE.Object3D();
-        this.grupoOscilacion.add(this.grupoAbanico);
-
-        this.modulos = [];
-        this.varillaFinal = null;
-
-        // =========================================================
         // MATERIALES
         // =========================================================
         this.materialVarilla = new THREE.MeshStandardMaterial({
             color: 0x4a2616,
-            roughness: 0.82,
-            metalness: 0.08
+            roughness: 0.8,
+            metalness: 0.1
         });
 
         this.materialTela = new THREE.MeshStandardMaterial({
-            color: 0xb8ae92,
-            roughness: 0.96,
-            metalness: 0.02,
+            map: texturaColor,
+            bumpMap: texturaRelieve,
+            bumpScale: 0.05,
             side: THREE.DoubleSide
         });
 
-        this.materialBase = new THREE.MeshStandardMaterial({
-            color: 0x5a2e1a,
-            roughness: 0.78,
-            metalness: 0.10
+        this.materialBorde = new THREE.MeshStandardMaterial({
+            color: 0xd4af37,
+            metalness: 0.8,
+            roughness: 0.3
         });
 
-        this.materialRemache = new THREE.MeshStandardMaterial({
-            color: 0x7b5a3a,
-            roughness: 0.65,
-            metalness: 0.20
-        });
+        // =========================================================
+        // ESTRUCTURA
+        // =========================================================
+        this.grupo = new THREE.Object3D();
+        this.add(this.grupo);
 
-        this.construirAbanico();
+        this.modulos = [];
+
+        this.construir();
     }
 
     // =========================================================
-    // VARILLA MEDIANTE EXTRUSIÓN
-    // Se modela en local con pivote en el origen
-    // y creciendo hacia +Y
+    // TEXTURA TELA
     // =========================================================
-    crearGeometriaVarilla() {
+    crearTexturaTela() {
+        const c = document.createElement('canvas');
+        c.width = c.height = 512;
+        const ctx = c.getContext('2d');
+
+        ctx.fillStyle = '#d8ceb0';
+        ctx.fillRect(0, 0, 512, 512);
+
+        ctx.strokeStyle = '#c2b89a';
+        for (let i = 0; i < 512; i += 10) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, 512);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(512, i);
+            ctx.stroke();
+        }
+
+        return c;
+    }
+
+    crearRelieveTela() {
+        const c = document.createElement('canvas');
+        c.width = c.height = 512;
+        const ctx = c.getContext('2d');
+
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, 512, 512);
+
+        ctx.strokeStyle = '#999';
+        for (let i = 0; i < 512; i += 10) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, 512);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(512, i);
+            ctx.stroke();
+        }
+
+        return c;
+    }
+
+    // =========================================================
+    // VARILLA
+    // =========================================================
+    crearVarilla() {
         const shape = new THREE.Shape();
 
-        shape.moveTo(-0.07, 0.0);
-        shape.quadraticCurveTo(-0.16, 0.08, -0.11, 0.27);
-        shape.lineTo(-0.045, 3.25);
-        shape.quadraticCurveTo(0.0, 3.50, 0.045, 3.25);
-        shape.lineTo(0.11, 0.27);
-        shape.quadraticCurveTo(0.16, 0.08, 0.07, 0.0);
+        shape.moveTo(-0.07, 0);
+        shape.quadraticCurveTo(-0.15, 0.1, -0.1, 0.25);
+        shape.lineTo(-0.04, 3.2);
+        shape.quadraticCurveTo(0, 3.4, 0.04, 3.2);
+        shape.lineTo(0.1, 0.25);
+        shape.quadraticCurveTo(0.15, 0.1, 0.07, 0);
 
         const geo = new THREE.ExtrudeGeometry(shape, {
             depth: this.grosorVarilla,
-            bevelEnabled: false,
-            curveSegments: 24
+            bevelEnabled: false
         });
 
-        // Centramos el grosor en Z pero mantenemos la base en Y=0
-        geo.translate(0, 0, -this.grosorVarilla * 0.5);
+        geo.translate(0, 0, -this.grosorVarilla / 2);
 
-        return geo;
+        return new THREE.Mesh(geo, this.materialVarilla);
     }
 
     // =========================================================
-    // TELA LOCAL DEL MÓDULO
-    // Se genera en el MISMO plano XY que la varilla.
-    // El módulo representa la varilla izquierda del sector y su
-    // paño hasta la siguiente varilla.
+    // TELA CON PLIEGUES
     // =========================================================
-    crearGeometriaPanoLocal(anguloSegmento, subdiv = 16) {
+    crearTela(angulo, subdiv = 20) {
+        const geo = new THREE.BufferGeometry();
         const vertices = [];
         const indices = [];
         const uvs = [];
 
-        // La tela queda ligeramente detrás de la varilla
-        const zFront = -0.004;
-        const zBack = zFront - this.grosorTela;
+        const z1 = -0.001;
+        const z2 = -this.grosorTela;
+
+        const ajuste = 0;
 
         for (let i = 0; i <= subdiv; i++) {
             const t = i / subdiv;
-            const ang = t * anguloSegmento;
+            const ang = ajuste + t * (angulo - 2 * ajuste);
 
-            const xi = this.radioTelaInterior * Math.sin(ang);
-            const yi = this.radioTelaInterior * Math.cos(ang);
+            const pliegue = 0.05 * Math.sin(ang * this.numModulos);
 
-            const xe = this.radioTelaExterior * Math.sin(ang);
-            const ye = this.radioTelaExterior * Math.cos(ang);
+            const xi = this.radioInterior * Math.sin(ang);
+            const yi = this.radioInterior * Math.cos(ang) + pliegue;
 
-            // cara frontal
-            vertices.push(xi, yi, zFront);
-            vertices.push(xe, ye, zFront);
-            uvs.push(t, 0);
-            uvs.push(t, 1);
+            const xe = this.radioExterior * Math.sin(ang);
+            const ye = this.radioExterior * Math.cos(ang) + pliegue * 2;
 
-            // cara trasera
-            vertices.push(xi, yi, zBack);
-            vertices.push(xe, ye, zBack);
-            uvs.push(t, 0);
-            uvs.push(t, 1);
+            vertices.push(xi, yi, z1, xe, ye, z1);
+            vertices.push(xi, yi, z2, xe, ye, z2);
+
+            uvs.push(t, 0, t, 1);
+            uvs.push(t, 0, t, 1);
         }
 
         for (let i = 0; i < subdiv; i++) {
             const k = i * 4;
 
-            // frontal
-            indices.push(k, k + 1, k + 4);
-            indices.push(k + 1, k + 5, k + 4);
-
-            // trasera
-            indices.push(k + 2, k + 6, k + 3);
-            indices.push(k + 3, k + 6, k + 7);
-
-            // borde interior
-            indices.push(k, k + 4, k + 2);
-            indices.push(k + 2, k + 4, k + 6);
-
-            // borde exterior
-            indices.push(k + 1, k + 3, k + 5);
-            indices.push(k + 3, k + 7, k + 5);
+            indices.push(k, k + 1, k + 4, k + 1, k + 5, k + 4);
+            indices.push(k + 2, k + 6, k + 3, k + 3, k + 6, k + 7);
         }
 
-        // lateral inicial
-        indices.push(0, 2, 1);
-        indices.push(1, 2, 3);
-
-        // lateral final
-        const f = subdiv * 4;
-        indices.push(f, f + 1, f + 2);
-        indices.push(f + 1, f + 3, f + 2);
-
-        const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geo.setIndex(indices);
         geo.computeVertexNormals();
 
-        return geo;
+        return new THREE.Mesh(geo, this.materialTela);
     }
 
     // =========================================================
-    // MÓDULO = VARILLA + TELA PEGADA
-    // Ambos en local. Luego se rota el módulo entero.
+    // MÓDULO
     // =========================================================
-    crearModulo(anguloSegmento) {
-        const modulo = new THREE.Object3D();
+    crearModulo(angulo) {
+        const obj = new THREE.Object3D();
 
-        const varilla = new THREE.Mesh(
-            this.crearGeometriaVarilla(),
-            this.materialVarilla
-        );
-        modulo.add(varilla);
+        const varilla = this.crearVarilla();
+        const tela = this.crearTela(angulo);
 
-        const pano = new THREE.Mesh(
-            this.crearGeometriaPanoLocal(anguloSegmento),
-            this.materialTela
-        );
-        modulo.add(pano);
+        obj.add(varilla);
+        obj.add(tela);
 
-        modulo.userData.varilla = varilla;
-        modulo.userData.pano = pano;
 
-        return modulo;
+        obj.userData.tela = tela;
+
+        return obj;
     }
-
-    // =========================================================
-    // BASE DEL ABANICO
-    // =========================================================
-    crearRemache() {
-        const geo = new THREE.CylinderGeometry(0.1, 0.1, 0.08, 20);
-        const mat = new THREE.MeshStandardMaterial({
-            color: 0x7a5b3a,
-            roughness: 0.7,
-            metalness: 0.2
-        });
-
-        const remache = new THREE.Mesh(geo, mat);
-        remache.rotation.z = Math.PI / 2;
-        return remache;
-    }
-
 
     // =========================================================
     // CONSTRUCCIÓN
     // =========================================================
-    construirAbanico() {
-        const pasoInicial = this.anguloActual / (this.numVarillas - 1);
+    construir() {
+        const paso = this.anguloActual / (this.numVarillas +1 );
 
+        
         for (let i = 0; i < this.numModulos; i++) {
-            const modulo = this.crearModulo(pasoInicial);
-            this.modulos.push(modulo);
-            this.grupoAbanico.add(modulo);
+            const mod = this.crearModulo(paso);
+
+            // eliminar último paño
+            if (i === 0) {
+                mod.remove(mod.userData.tela);
+                mod.userData.tela = null;
+            }
+
+            this.modulos.push(mod);
+            this.grupo.add(mod);
         }
-
-        this.varillaFinal = new THREE.Object3D();
-        const meshFinal = new THREE.Mesh(
-            this.crearGeometriaVarilla(),
-            this.materialVarilla
-        );
-        this.varillaFinal.add(meshFinal);
-        this.grupoAbanico.add(this.varillaFinal);
-
-        this.base = this.crearRemache();
-        this.grupoAbanico.add(this.base);
-
-        this.actualizarGeometria();
+       
     }
 
     // =========================================================
-    // ACTUALIZACIÓN
-    // Cada módulo se rota a su ángulo.
-    // La tela SIEMPRE se genera en local de 0 a paso.
+    // UPDATE
     // =========================================================
-    actualizarGeometria() {
-        const anguloTotal = this.anguloActual;
-        const anguloInicial = -anguloTotal / 2;
-        const paso = anguloTotal / (this.numVarillas - 1);
+    actualizar() {
+        const total = this.anguloActual;
+        const inicio = -total / 2;
+        const paso = total / (this.numVarillas );
 
-        for (let i = 0; i < this.numModulos; i++) {
-            const ang0 = anguloInicial + i * paso;
-            const modulo = this.modulos[i];
+        for (let i = 0; i < this.modulos.length; i++) {
+            const ang = inicio + i * paso ;
+            const mod = this.modulos[i];
 
-            modulo.rotation.z = ang0;
+            mod.rotation.z = ang;
 
-            modulo.userData.pano.geometry.dispose();
-            modulo.userData.pano.geometry = this.crearGeometriaPanoLocal(paso, 16);
+            if (mod.userData.tela) {
+                mod.remove(mod.userData.tela);
+                mod.userData.tela = this.crearTela(paso);
+                mod.add(mod.userData.tela);
+            }
         }
 
-        const angFinal = anguloInicial + (this.numVarillas - 1) * paso;
-        this.varillaFinal.rotation.z = angFinal;
     }
 
-    // =========================================================
-    // ANIMACIÓN
-    // =========================================================
     update(delta) {
         this.tiempo += delta;
 
-        const t = 0.5 + 0.5 * Math.sin(this.tiempo * 1.8);
+        const t =   0.5 + 0.5 * Math.sin(this.tiempo * 1
+
+        );
         this.anguloActual = this.anguloMin + t * (this.anguloMax - this.anguloMin);
 
-        this.actualizarGeometria();
-
-        this.grupoOscilacion.rotation.y = 0.14 * Math.sin(this.tiempo * 1.8);
+        this.actualizar();
     }
 }
 
