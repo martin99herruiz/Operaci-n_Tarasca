@@ -4,8 +4,8 @@ import { GUI } from '../libs/dat.gui.module.js';
 
 import { Abanico } from './Abanico.js';
 import { Farolillo } from './Farolillo.js';
-// import { Castanuelas } from './Castanuelas.js';
-// import { Rebujito } from './Rebujito.js';
+import { Castanuelas } from './Castanuelas.js';
+import { Rebujito } from './Rebujito.js';
 
 let renderer, scene, camera, controls;
 let objetoActual = null;
@@ -166,9 +166,19 @@ function cambiarObjeto(tipo) {
             objetoActual.position.set(0, 0, 0);
             break;
 
+        case 'castanuelas':
+            objetoActual = new Castanuelas();
+            objetoActual.position.set(0, 0.2, 0);
+            break;
+
+        case 'rebujito':
+            objetoActual = new Rebujito();
+            objetoActual.position.set(0, 0.2, 0);
+            break;
+
         default:
             objetoActual = new Abanico();
-            objetoActual.position.set(0, 0.2, 0);
+            objetoActual.position.set(0, 2, 0);
             break;
     }
 
