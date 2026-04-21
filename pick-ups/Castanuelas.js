@@ -5,28 +5,20 @@ class Castanuelas extends THREE.Object3D {
     constructor() {
         super();
 
-        // ==========================================
-        // PARÁMETROS
-        // ==========================================
         this.tiempo = 0;
-        this.aperturaMax = THREE.MathUtils.degToRad(15); // Ángulo de repique
+        this.aperturaMax = THREE.MathUtils.degToRad(15);
         this.velocidadRepique = 8;
 
-        // ==========================================
-        // MATERIALES
-        // ==========================================
-        // Madera oscura pulida (granadillo/ébano)
         this.materialMadera = new THREE.MeshStandardMaterial({
             color: 0x2a1506,
-            roughness: 0.2,
-            metalness: 0.1,
+            roughness: 0.22,
+            metalness: 0.08,
             side: THREE.DoubleSide
         });
 
-        // Cordón de algodón trenzado rojo
         this.materialCordon = new THREE.MeshStandardMaterial({
             color: 0x8b0000,
-            roughness: 0.9
+            roughness: 0.85
         });
 
         this.createModel();
@@ -34,121 +26,187 @@ class Castanuelas extends THREE.Object3D {
     }
 
     createModel() {
-        // Contenedor para el modelo jerárquico
         this.grupoCastanuelas = new THREE.Object3D();
         this.add(this.grupoCastanuelas);
 
-        // --- NODOS DE ARTICULACIÓN (Pivotes) ---
-        // Situamos el centro de rotación en el "oído" (la parte superior)
-        // Siguiendo L4.pdf pg. 67 sobre Modelos Jerárquicos
         this.pivotSuperior = new THREE.Object3D();
         this.pivotInferior = new THREE.Object3D();
 
-        // Creamos las dos conchas (hojas)
         this.hojaSuperior = this.crearConcha();
         this.hojaInferior = this.crearConcha();
 
-        // Posicionamiento relativo al pivote (Traspasamos el origen al eje de giro)
-        // La hoja superior "cuelga" hacia abajo desde el pivote
-        this.hojaSuperior.position.set(0, -1.2, 0.15);
-        
-        // La hoja inferior es simétrica
-        this.hojaInferior.position.set(0, -1.2, -0.15);
-        this.hojaInferior.rotation.x = Math.PI; 
+        this.hojaSuperior.position.set(0, -1.1, 0.14);
+        this.hojaInferior.position.set(0, -1.1, -0.14);
+        this.hojaInferior.rotation.x = Math.PI;
 
-        // Ensamblaje de la jerarquía
         this.pivotSuperior.add(this.hojaSuperior);
         this.pivotInferior.add(this.hojaInferior);
-        
+
         this.grupoCastanuelas.add(this.pivotSuperior);
         this.grupoCastanuelas.add(this.pivotInferior);
 
-        // Añadimos detalles: el cordón que une los "oídos"
         const cordones = this.crearDetalleCordon();
         this.grupoCastanuelas.add(cordones);
     }
 
-    // =========================================================
-    // TÉCNICA: EXTRUSIÓN Y SHAPES (L4.pdf pg. 20)
-    // =========================================================
     crearConcha() {
-        const shape = new THREE.Shape();
+        const grupo = new THREE.Group();
 
-        // Perfil exterior de la castanuela
-        shape.moveTo(0, 1.2); 
-        shape.bezierCurveTo(0.6, 1.2, 1.0, 0.8, 1.0, 0.2);
-        shape.bezierCurveTo(1.0, -0.8, 0.5, -1.2, 0, -1.2);
-        shape.bezierCurveTo(-0.5, -1.2, -1.0, -0.8, -1.0, 0.2);
-        shape.bezierCurveTo(-1.0, 0.8, -0.6, 1.2, 0, 1.2);
+        // EXTERIOR CONVEXO
+        const geoExterior = new THREE.SphereGeometry(1.0, 90, 40);
+        geoExterior.scale(0.95, 1.2, 0.42);
 
-        // Hueco interior (Cuchara)
-        // Añadimos un agujero al shape para que la extrusión sea hueca
-        const holePath = new THREE.Path();
-        holePath.absarc(0, 0, 0.7, 0, Math.PI * 2, true);
-        shape.holes.push(holePath);
+        const exterior = new THREE.Mesh(geoExterior, this.materialMadera);
+        exterior.castShadow = true;
+        exterior.receiveShadow = true;
+
+        // INTERIOR CÓNCAVO
+        const geoInterior = new THREE.SphereGeometry(0.82, 40, 40);
+        geoInterior.scale(0.78, 1.00, 0.20);
+
+        const materialInterior = new THREE.MeshStandardMaterial({
+            color: 0x1a0b03,
+            roughness: 0.28,
+            metalness: 0.05,
+            side: THREE.DoubleSide
+        });
+
+        const interior = new THREE.Mesh(geoInterior, materialInterior);
+        interior.position.z = 0.10;
+        interior.castShadow = true;
+        interior.receiveShadow = true;
+
+        // BORDE PERIMETRAL
+        const geoBorde = new THREE.TorusGeometry(0.72, 0.10, 20, 80);
+        geoBorde.scale(1.18, 1.45, 1.0);
+
+        const borde = new THREE.Mesh(geoBorde, this.materialMadera);
+        borde.rotation.x = Math.PI / 2;
+        borde.position.z = 0.02;
+        borde.castShadow = true;
+        borde.receiveShadow = true;
+
+        // OREJA SUPERIOR
+        const orejaShape = new THREE.Shape();
+        orejaShape.moveTo(-0.18, 0);
+        orejaShape.quadraticCurveTo(-0.18, 0.22, 0, 0.28);
+        orejaShape.quadraticCurveTo(0.18, 0.22, 0.18, 0);
+        orejaShape.lineTo(0.12, -0.18);
+        orejaShape.quadraticCurveTo(0, -0.10, -0.12, -0.18);
+        //orejaShape.closePath();
 
         const extrudeSettings = {
-            depth: 0.2,
+            depth: 0.16,
             bevelEnabled: true,
-            bevelThickness: 0.1,
-            bevelSize: 0.1,
-            bevelSegments: 8
+            bevelThickness: 0.02,
+            bevelSize: 0.02,
+            bevelSegments: 3
         };
 
-        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        
-        // Centramos la geometría para que el "oído" sea el punto 0,0
-        geo.translate(0, 0, -0.1);
+        const geoOreja = new THREE.ExtrudeGeometry(orejaShape, extrudeSettings);
+        geoOreja.center();
 
-        const mesh = new THREE.Mesh(geo, this.materialMadera);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        
-        return mesh;
+        const oreja = new THREE.Mesh(geoOreja, this.materialMadera);
+        oreja.position.set(0, 1.18, 0.02);
+        oreja.castShadow = true;
+        oreja.receiveShadow = true;
+
+        grupo.add(exterior);
+        grupo.add(interior);
+        grupo.add(borde);
+        grupo.add(oreja);
+
+        return grupo;
     }
 
+    crearConcha() {
+        const grupo = new THREE.Group();
+
+        // =========================================================
+        // EXTERIOR (forma principal)
+        // =========================================================
+        const geoExterior = new THREE.SphereGeometry(1, 40, 40);
+        geoExterior.scale(0.85, 1.15, 0.35); // menos profundo → más real
+
+        const exterior = new THREE.Mesh(geoExterior, this.materialMadera);
+
+        // =========================================================
+        // INTERIOR (concavidad real)
+        // =========================================================
+        const geoInterior = new THREE.SphereGeometry(0.78, 40, 40);
+        geoInterior.scale(0.75, 1.0, 0.20);
+
+        const interior = new THREE.Mesh(
+            geoInterior,
+            new THREE.MeshStandardMaterial({
+                color: 0x140803,
+                roughness: 0.3,
+                metalness: 0.05,
+                side: THREE.DoubleSide
+            })
+        );
+
+
+        interior.position.z = 0.52;
+
+        // =========================================================
+        // APLASTAR BASE (forma real de castañuela)
+        // =========================================================
+        exterior.scale.x = 0.85; // menos circular
+        interior.scale.x = 0.85;
+
+        // =========================================================
+        // OREJA (simplificada pero integrada)
+        // =========================================================
+        const geoOreja = new THREE.BoxGeometry(0.25, 0.2, 0.15);
+        const oreja = new THREE.Mesh(geoOreja, this.materialMadera);
+        oreja.position.set(0, 1.15, 0.05);
+
+        grupo.add(exterior);
+        grupo.add(interior);
+        grupo.add(oreja);
+
+        return grupo;
+    }
     crearDetalleCordon() {
         const grupoCordon = new THREE.Group();
 
-        // Simulamos los nudos superiores con toroides
-        const geoNudo = new THREE.TorusGeometry(0.15, 0.04, 12, 24);
+        const geoNudo = new THREE.TorusGeometry(0.12, 0.035, 12, 24);
         const nudo1 = new THREE.Mesh(geoNudo, this.materialCordon);
-        const nudo2 = nudo1.clone();
+        const nudo2 = new THREE.Mesh(geoNudo, this.materialCordon);
 
-        nudo1.position.set(-0.3, 0, 0);
-        nudo2.position.set(0.3, 0, 0);
-        
-        // Un arco que une los dos lados (el cordón que va al dedo)
-        const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(-0.3, 0, 0),
-            new THREE.Vector3(0, 0.5, 0),
-            new THREE.Vector3(0.3, 0, 0)
+        nudo1.rotation.y = Math.PI / 2;
+        nudo2.rotation.y = Math.PI / 2;
+
+        nudo1.position.set(-0.18, 0.05, 0);
+        nudo2.position.set(0.18, 0.05, 0);
+
+        const curva = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-0.18, 0.05, 0),
+            new THREE.Vector3(0, 0.38, 0),
+            new THREE.Vector3(0.18, 0.05, 0)
         ]);
-        const geoTubo = new THREE.TubeGeometry(curve, 20, 0.03, 8, false);
-        const cordel = new THREE.Mesh(geoTubo, this.materialCordon);
 
-        grupoCordon.add(nudo1, nudo2, cordel);
-        grupoCordon.position.y = 0.1; // Encima de los pivotes
+        const geoCordel = new THREE.TubeGeometry(curva, 20, 0.025, 8, false);
+        const cordel = new THREE.Mesh(geoCordel, this.materialCordon);
+
+        grupoCordon.add(nudo1);
+        grupoCordon.add(nudo2);
+        grupoCordon.add(cordel);
+
+        grupoCordon.position.y = 0.05;
 
         return grupoCordon;
     }
-
-    // =========================================================
-    // ANIMACIÓN: REPIQUE (L4.pdf pg. 66)
-    // =========================================================
     update(delta) {
         this.tiempo += delta * this.velocidadRepique;
 
-        // Movimiento de apertura/cierre oscilante
-        // Usamos Math.abs para que siempre estén abiertas o cerradas, nunca se crucen
         const angulo = Math.abs(Math.sin(this.tiempo)) * this.aperturaMax;
 
-        // Aplicamos la rotación a los pivotes (Modelado Jerárquico)
-        this.pivotSuperior.rotation.x = -angulo;
-        this.pivotInferior.rotation.x = angulo;
+        this.pivotSuperior.rotation.x = -angulo*2;
+        this.pivotInferior.rotation.x = angulo*2;
 
-        // Pequeña vibración lateral para dar realismo al toque
-        this.rotation.y = Math.sin(this.tiempo * 1.5) * 0.05;
+        this.rotation.y = Math.sin(this.tiempo * 0.5) * 0.05;
     }
 }
 
