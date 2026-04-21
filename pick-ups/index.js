@@ -147,79 +147,101 @@ function crearGUI() {
 
 function reconstruirPanelObjeto() {
     if (carpetaObjeto) {
-        gui.removeFolder?.(carpetaObjeto);
-    }
-
-    // Compatibilidad con versiones donde removeFolder no existe
-    if (carpetaObjeto && carpetaObjeto.domElement && carpetaObjeto.domElement.parentNode) {
-        carpetaObjeto.domElement.parentNode.removeChild(carpetaObjeto.domElement);
-        gui.onResize();
+        if (carpetaObjeto.domElement && carpetaObjeto.domElement.parentNode) {
+            carpetaObjeto.domElement.parentNode.removeChild(carpetaObjeto.domElement);
+            gui.onResize();
+        }
+        carpetaObjeto = null;
     }
 
     carpetaObjeto = gui.addFolder(`Panel de ${effectController.objeto}`);
     const ctrl = objetoActual;
 
-    // -------------------------------------------------
-    // CONTROLES ESPECÍFICOS SEGÚN MÉTODOS DISPONIBLES
-    // -------------------------------------------------
-
-    // Velocidad de giro genérica
-    if ('velocidadRotacion' in ctrl) {
-        carpetaObjeto.add(ctrl, 'velocidadRotacion', 0, 0.2, 0.005).name('Vel. giro');
+    // ---------------------------------
+    // CONTROLES GENERALES DEL OBJETO
+    // ---------------------------------
+    if (typeof ctrl.setRotacionActiva === 'function') {
+        const paramsRotacion = { rotacion: effectController.girar };
+        carpetaObjeto.add(paramsRotacion, 'rotacion')
+            .name('Rotación')
+            .onChange((v) => ctrl.setRotacionActiva(v));
     }
 
-    // Abanico: apertura / animación
-    if ('anguloApertura' in ctrl) {
-        carpetaObjeto.add(ctrl, 'anguloApertura', 0, Math.PI / 2, 0.01).name('Apertura');
-    }
-    if ('aperturaMaxima' in ctrl) {
-        carpetaObjeto.add(ctrl, 'aperturaMaxima', 0, Math.PI / 2, 0.01).name('Apertura máx.');
-    }
-    if ('animacionActiva' in ctrl) {
-        carpetaObjeto.add(ctrl, 'animacionActiva').name('Animación');
+    if (typeof ctrl.setLuzActiva === 'function') {
+        const paramsLuz = { luz: effectController.luz };
+        carpetaObjeto.add(paramsLuz, 'luz')
+            .name('Luz')
+            .onChange((v) => ctrl.setLuzActiva(v));
     }
 
-    // Farolillo: luz / pliegues / amplitud
-    if ('rotacionActiva' in ctrl) {
-        carpetaObjeto.add(ctrl, 'rotacionActiva').name('Rotación propia');
-    }
-    if ('luzActiva' in ctrl) {
-        carpetaObjeto.add(ctrl, 'luzActiva').name('Luz propia');
-    }
-    if ('pliegues' in ctrl) {
-        carpetaObjeto.add(ctrl, 'pliegues', 6, 40, 1).name('Pliegues');
-    }
-    if ('amplitudPliegue' in ctrl) {
-        carpetaObjeto.add(ctrl, 'amplitudPliegue', 0, 0.2, 0.005).name('Amplitud');
+    // ---------------------------------
+    // ABANICO
+    // ---------------------------------
+    if (typeof ctrl.setApertura === 'function') {
+        const paramsApertura = { apertura: ctrl.anguloApertura ?? 0.4 };
+        carpetaObjeto.add(paramsApertura, 'apertura', Math.PI , 0.01)
+            .name('Apertura')
+            .onChange((v) => ctrl.setApertura(v));
     }
 
-    // Castañuelas: repique / apertura
-    if ('velocidadRepique' in ctrl) {
-        carpetaObjeto.add(ctrl, 'velocidadRepique', 0, 20, 0.1).name('Vel. repique');
-    }
-    if ('aperturaMax' in ctrl) {
-        carpetaObjeto.add(ctrl, 'aperturaMax', 0, Math.PI / 4, 0.01).name('Apertura máx.');
-    }
-
-    // Rebujito: burbujas / nivel / transparencia
-    if ('nivelLiquido' in ctrl) {
-        carpetaObjeto.add(ctrl, 'nivelLiquido', 0.1, 1.0, 0.01).name('Nivel líquido');
-    }
-    if ('velocidadBurbujas' in ctrl) {
-        carpetaObjeto.add(ctrl, 'velocidadBurbujas', 0, 5, 0.05).name('Vel. burbujas');
-    }
-    if ('opacidadLiquido' in ctrl) {
-        carpetaObjeto.add(ctrl, 'opacidadLiquido', 0.1, 1.0, 0.01).name('Opacidad');
+    if (typeof ctrl.setAnimacionActiva === 'function') {
+        const paramsAnimacion = { animacion: ctrl.animacionActiva ?? true };
+        carpetaObjeto.add(paramsAnimacion, 'animacion')
+            .name('Animación')
+            .onChange((v) => ctrl.setAnimacionActiva(v));
     }
 
-    // Métodos tipo acción
+    // ---------------------------------
+    // FAROLILLO
+    // ---------------------------------
+    if (typeof ctrl.setVelocidadRotacion === 'function') {
+        const paramsVelocidad = { velocidad: ctrl.velocidadRotacion ?? 0.01 };
+        carpetaObjeto.add(paramsVelocidad, 'velocidad', 0, 0.2, 0.005)
+            .name('Vel. giro')
+            .onChange((v) => ctrl.setVelocidadRotacion(v));
+    }
+
+    // ---------------------------------
+    // CASTAÑUELAS
+    // ---------------------------------
+    if (typeof ctrl.setVelocidadRepique === 'function') {
+        const paramsRepique = { repique: ctrl.velocidadRepique ?? 8 };
+        carpetaObjeto.add(paramsRepique, 'repique', 0, 20, 0.1)
+            .name('Vel. repique')
+            .onChange((v) => ctrl.setVelocidadRepique(v));
+    }
+
+    if (typeof ctrl.setAperturaMax === 'function') {
+        const paramsAperturaMax = { aperturaMax: ctrl.aperturaMax ?? 0.25 };
+        carpetaObjeto.add(paramsAperturaMax, 'aperturaMax', 0, Math.PI / 4, 0.01)
+            .name('Apertura máx.')
+            .onChange((v) => ctrl.setAperturaMax(v));
+    }
+
+    // ---------------------------------
+    // REBUJITO
+    // ---------------------------------
+    if (typeof ctrl.setNivelLiquido === 'function') {
+        const paramsNivel = { nivel: ctrl.nivelLiquido ?? 0.7 };
+        carpetaObjeto.add(paramsNivel, 'nivel', 0.1, 1.0, 0.01)
+            .name('Nivel líquido')
+            .onChange((v) => ctrl.setNivelLiquido(v));
+    }
+
+    if (typeof ctrl.setOpacidadLiquido === 'function') {
+        const paramsOpacidad = { opacidad: ctrl.opacidadLiquido ?? 0.85 };
+        carpetaObjeto.add(paramsOpacidad, 'opacidad', 0.1, 1.0, 0.01)
+            .name('Opacidad')
+            .onChange((v) => ctrl.setOpacidadLiquido(v));
+    }
+
     if (typeof ctrl.reset === 'function') {
-        carpetaObjeto.add({ reset: () => ctrl.reset() }, 'reset').name('Reset');
+        carpetaObjeto.add({ reset: () => ctrl.reset() }, 'reset')
+            .name('Reset');
     }
 
     carpetaObjeto.open();
 }
-
 function limpiarObjetoActual() {
     if (objetoActual) {
         scene.remove(objetoActual);

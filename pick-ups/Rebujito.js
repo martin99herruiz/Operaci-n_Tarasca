@@ -11,7 +11,7 @@ class Rebujito extends THREE.Object3D {
         // ==========================================
         // MATERIALES
         // ==========================================
-        
+
         // CRISTAL
         this.materialCristal = new THREE.MeshPhysicalMaterial({
             color: 0xffffff,
@@ -71,25 +71,25 @@ class Rebujito extends THREE.Object3D {
         canvas.width = 256;
         canvas.height = 256;
         const ctx = canvas.getContext('2d');
-        
+
         ctx.fillStyle = '#888888';
         ctx.fillRect(0, 0, 256, 256);
-        
+
         for (let i = 0; i < 60; i++) {
             const x = Math.random() * 256;
             const y = Math.random() * 256;
             const r = Math.random() * 2 + 1;
-            
+
             const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
             grad.addColorStop(0, '#ffffff');
             grad.addColorStop(1, '#888888');
-            
+
             ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.arc(x, y, r, 0, Math.PI * 2);
             ctx.fill();
         }
-        
+
         const textura = new THREE.CanvasTexture(canvas);
         textura.wrapS = textura.wrapT = THREE.RepeatWrapping;
         return textura;
@@ -98,7 +98,7 @@ class Rebujito extends THREE.Object3D {
     // =========================================================
     // COMPONENTES
     // =========================================================
-    
+
     crearVaso() {
         const puntos = [];
         const radio = 0.6;
@@ -165,7 +165,7 @@ class Rebujito extends THREE.Object3D {
 
         hielo.position.set(x, y, z);
         hielo.rotation.set(rotX, rotY, rotZ);
-        hielo.scale.set(escala, escala , escala);
+        hielo.scale.set(escala, escala, escala);
         hielo.renderOrder = 3;
 
         // Guardamos datos para animación suave
@@ -220,9 +220,32 @@ class Rebujito extends THREE.Object3D {
     // =========================================================
     // ANIMACIÓN
     // =========================================================
+
+    setRotacionActiva(valor) {
+        this.rotacionActiva = valor;
+    }
+
+    setNivelLiquido(valor) {
+        this.nivelLiquido = valor;
+
+        if (this.mallaLiquido) {
+            this.mallaLiquido.scale.y = valor;
+            this.mallaLiquido.position.y = -0.5 + valor * 0.5;
+        }
+    }
+
+    setOpacidadLiquido(valor) {
+        this.opacidadLiquido = valor;
+
+        if (this.materialLiquido) {
+            this.materialLiquido.opacity = valor;
+            this.materialLiquido.needsUpdate = true;
+        }
+    }
+
     update(delta) {
         this.tiempo += delta;
-        
+
         // Burbujas subiendo
         if (this.texturaBurbujas) {
             this.texturaBurbujas.offset.y -= delta * 0.15;

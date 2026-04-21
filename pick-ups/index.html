@@ -1,29 +1,66 @@
-<style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    font-family: sans-serif;
-  }
+<!DOCTYPE html>
+<html lang="es">
 
-  #ui {
-    position: absolute;
-    top: 15px;
-    left: 15px;
-    z-index: 30;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 10px 14px;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  }
+<head>
+  <meta charset="UTF-8">
+  <title>Visualizador de Pick-Ups</title>
 
-  select {
-    margin-left: 10px;
-    padding: 4px;
+  <!-- Import map para Three.js -->
+  <script type="importmap">
+{
+  "imports": {
+    "three": "../libs/three.module.js"
   }
+}
+</script>
 
-  .dg.ac {
-    z-index: 20 !important;
-    top: 80px !important;
-    right: 15px !important;
-  }
-</style>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+
+    #ui {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 30;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px 14px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    select {
+      margin-left: 10px;
+      padding: 4px;
+    }
+
+    .dg.ac {
+      z-index: 20 !important;
+      top: 80px !important;
+      right: 15px !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- UI -->
+  <div id="ui">
+    <label for="selector"><strong>Objeto:</strong></label>
+    <select id="selector">
+      <option value="abanico">Abanico</option>
+      <option value="farolillo">Farolillo</option>
+      <option value="castanuelas">Castañuelas</option>
+      <option value="rebujito">Rebujito</option>
+    </select>
+  </div>
+
+  <!-- Script principal -->
+  <script type="module" src="./index.js"></script>
+
+</body>
+
+</html>

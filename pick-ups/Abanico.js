@@ -6,7 +6,7 @@ class Abanico extends THREE.Object3D {
         super();
 
         // =========================================================
-        // TEXTURAS (SIN ARCHIVOS → SIN ERRORES)
+        // TEXTURAS
         // =========================================================
         const texturaColor = new THREE.CanvasTexture(this.crearTexturaTela());
         const texturaRelieve = new THREE.CanvasTexture(this.crearRelieveTela());
@@ -28,6 +28,10 @@ class Abanico extends THREE.Object3D {
         this.grosorTela = 0.012;
 
         this.tiempo = 0;
+
+        // Estado interactivo
+        this.rotacionActiva = true;
+        this.animacionActiva = true;
 
         // =========================================================
         // MATERIALES
@@ -60,6 +64,7 @@ class Abanico extends THREE.Object3D {
         this.modulos = [];
 
         this.construir();
+        this.actualizar();
     }
 
     // =========================================================
@@ -148,11 +153,9 @@ class Abanico extends THREE.Object3D {
         const z1 = -0.001;
         const z2 = -this.grosorTela;
 
-        const ajuste = 0;
-
         for (let i = 0; i <= subdiv; i++) {
             const t = i / subdiv;
-            const ang = ajuste + t * (angulo - 2 * ajuste);
+            const ang = t * angulo;
 
             const pliegue = 0.05 * Math.sin(ang * this.numModulos);
 
@@ -196,7 +199,7 @@ class Abanico extends THREE.Object3D {
         obj.add(varilla);
         obj.add(tela);
 
-
+        obj.userData.varilla = varilla;
         obj.userData.tela = tela;
 
         return obj;
@@ -206,13 +209,11 @@ class Abanico extends THREE.Object3D {
     // CONSTRUCCIÓN
     // =========================================================
     construir() {
-        const paso = this.anguloActual / (this.numVarillas +1 );
+        const paso = this.anguloActual / this.numVarillas;
 
-        
         for (let i = 0; i < this.numModulos; i++) {
             const mod = this.crearModulo(paso);
 
-            // eliminar último paño
             if (i === 0) {
                 mod.remove(mod.userData.tela);
                 mod.userData.tela = null;
@@ -221,41 +222,62 @@ class Abanico extends THREE.Object3D {
             this.modulos.push(mod);
             this.grupo.add(mod);
         }
-       
     }
 
     // =========================================================
-    // UPDATE
+    // ACTUALIZAR GEOMETRÍA
     // =========================================================
     actualizar() {
         const total = this.anguloActual;
         const inicio = -total / 2;
-        const paso = total / (this.numVarillas );
+        const paso = total / this.numVarillas;
 
         for (let i = 0; i < this.modulos.length; i++) {
-            const ang = inicio + i * paso ;
+            const ang = inicio + i * paso;
             const mod = this.modulos[i];
 
             mod.rotation.z = ang;
 
             if (mod.userData.tela) {
                 mod.remove(mod.userData.tela);
+                mod.userData.tela.geometry.dispose();
                 mod.userData.tela = this.crearTela(paso);
                 mod.add(mod.userData.tela);
             }
         }
-
     }
 
+    // =========================================================
+    // SETTERS PARA GUI
+    // =========================================================
+    setRotacionActiva(valor) {
+        this.rotacionActiva = valor;
+    }
+
+    setApertura(valor) {
+        this.anguloActual = THREE.MathUtils.clamp(valor, this.anguloMin, this.anguloMax);
+        this.actualizar();
+    }
+
+    setAnimacionActiva(valor) {
+        this.animacionActiva = valor;
+    }
+
+    // =========================================================
+    // UPDATE
+    // =========================================================
     update(delta) {
         this.tiempo += delta;
 
-        const t =   0.5 + 0.5 * Math.sin(this.tiempo * 1
+        if (this.rotacionActiva) {
+            this.rotation.y += 0.5 * delta;
+        }
 
-        );
-        this.anguloActual = this.anguloMin + t * (this.anguloMax - this.anguloMin);
-
-        this.actualizar();
+        if (this.animacionActiva) {
+            const t = 0.5 + 0.5 * Math.sin(this.tiempo);
+            this.anguloActual = this.anguloMin + t * (this.anguloMax - this.anguloMin);
+            this.actualizar();
+        }
     }
 }
 

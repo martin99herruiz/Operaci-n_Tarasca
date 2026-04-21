@@ -339,11 +339,11 @@ class Farolillo extends THREE.Object3D {
         }
     }
 
-    update(time) {
-        if (this.rotacionActiva) {
-            this.rotation.y = time * 0.00045;
-        }
+    update(delta) {
+    if (this.rotacionActiva) {
+        this.rotation.y += this.velocidadRotacion ?? 0.01;
     }
+}
 }
 
 export { Farolillo };
