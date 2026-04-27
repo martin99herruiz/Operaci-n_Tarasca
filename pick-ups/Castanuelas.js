@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Brush, Evaluator, SUBTRACTION, ADDITION } from '../libs/three-bvh-csg.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  CASTAÑUELAS — Pick-Up para "Operación Tarasca: Laberinto de Volantes"
@@ -27,6 +28,8 @@ import * as THREE from 'three';
 export class Castanuelas extends THREE.Group {
 
     constructor() {
+export class Castanuelas extends THREE.Object3D {
+    constructor(opts = {}) {
         super();
 
         // ── Parámetros animables (expuestos a la GUI) ──────────────────────
@@ -103,6 +106,63 @@ export class Castanuelas extends THREE.Group {
             roughness: 0.60,
             metalness: 0.04,
             side: THREE.DoubleSide,
+        this.scale.setScalar(1.6);
+
+        // animation state
+        this._time = 0;
+        this.hitSpeed = opts.hitSpeed || 10; // speed of hit animation
+        this.hitAngle = opts.hitAngle || 0.6; // max rotation angle (rad)
+
+        const woodMat = new THREE.MeshStandardMaterial({
+            map: createWoodTexture(),
+            roughness: 0.7,
+            metalness: 0.05
+        });
+
+        // create left and right castanuela
+        const left = this._makeShell(woodMat);
+        const right = left.clone();
+        right.rotation.y = Math.PI; // face opposite
+
+        // small separation and pivot setup
+        const leftPivot = new THREE.Object3D();
+        const rightPivot = new THREE.Object3D();
+
+        left.position.x = -0.17;
+        right.position.x = 0.17;
+
+        leftPivot.add(left);
+        rightPivot.add(right);
+
+        // add small cord between them
+        const cord = this._makeCord();
+        cord.position.y = 0.02;
+
+        this.left = leftPivot;
+        this.right = rightPivot;
+
+        // group assembly
+        this.add(leftPivot);
+        this.add(rightPivot);
+        this.add(cord);
+
+        // extruded tabs (orejas) near top on both halves
+        const tab = this._makeTab(woodMat);
+        tab.position.set(-0.02, 0.05, 0.25);
+        tab.rotation.x = -0.2;
+        this.add(tab);
+
+        const tab2 = tab.clone();
+        tab2.position.x = -tab.position.x;
+        tab2.rotation.y = Math.PI;
+        this.add(tab2);
+
+        // shadows
+        this.traverse((n) => {
+            if (n.isMesh) {
+                n.castShadow = true;
+                n.receiveShadow = true;
+            }
         });
 
         // Material interior (BackSide) para simular el hueco resonante (CSG)
@@ -218,6 +278,96 @@ export class Castanuelas extends THREE.Group {
 
     // Técnica 2: EXTRUSIÓN — oreja con agujero para el cordel
     _makeOrejaGeo() {
+        // expose simple API
+        this._rotating = true;
+    }
+
+    // crea la cáscara usando Lathe + CSG para hueco interior
+    _makeShell(material) {
+        // perfil proporcionado por el usuario
+        const perfil = [
+            new THREE.Vector2(0.00, 0.01),
+            new THREE.Vector2(0.31, 0.13),
+            new THREE.Vector2(0.42, 0.31),
+            new THREE.Vector2(0.34, 0.56),
+            new THREE.Vector2(0.18, 0.66),
+            new THREE.Vector2(0.19, 0.75),
+            new THREE.Vector2(0.33, 0.79),
+            new THREE.Vector2(0.32, 0.86),
+            new THREE.Vector2(0.00, 0.85),
+        ];
+
+        const outerGeo = new THREE.LatheGeometry(perfil, 64, 0, Math.PI * 2);
+        outerGeo.computeVertexNormals();
+
+        // inner profile slightly smaller and offset to create concavity
+        const innerPerfil = perfil.map(p => new THREE.Vector2(p.x * 0.75, p.y * 0.9 + 0.02));
+        const innerGeo = new THREE.LatheGeometry(innerPerfil, 64, 0, Math.PI * 2);
+        innerGeo.computeVertexNormals();
+
+        // create Brush meshes for CSG
+        const outerBrush = new Brush(outerGeo, material.clone());
+        const innerBrush = new Brush(innerGeo, new THREE.MeshStandardMaterial());
+        innerBrush.position.z = -0.02; // push slightly to ensure clean subtraction
+
+        // evaluate subtraction (outer - inner)
+        const evaluator = new Evaluator();
+        const result = evaluator.evaluate(outerBrush, innerBrush, SUBTRACTION);
+
+        // now cut away half the volume using a box (prisma) and CSG subtraction
+        // compute bounding box of the current result to position the cutting box precisely
+        const posAttr = result.geometry.attributes.position;
+        const bbox = new THREE.Box3();
+        bbox.setFromBufferAttribute(posAttr);
+        const size = bbox.getSize(new THREE.Vector3());
+        const center = bbox.getCenter(new THREE.Vector3());
+
+        // create a box that starts at the mid-plane (center.z) and extends to the positive side
+        const boxWidth = size.x * 3 + 0.5;
+        const boxHeight = size.y * 3 + 0.5;
+        const boxDepth = size.z * 1.2 + 0.1; // a bit larger than half depth
+ 
+        const halfBox = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
+        const halfBrush = new Brush(halfBox, new THREE.MeshStandardMaterial());
+        // position the box so its front face aligns with center.z (cutting plane at center)
+        halfBrush.position.z = center.z + boxDepth / 2;
+        halfBrush.updateMatrixWorld(true);
+
+        const finalBrush = evaluator.evaluate(result, halfBrush, SUBTRACTION);
+
+        // Tomamos el perfil interior (innerPerfil) y lo reducimos ligeramente radialmente
+        const fillPerfil = innerPerfil.map(p => new THREE.Vector2(p.x * 0.98, p.y * 1.0));
+        const fillGeo = new THREE.LatheGeometry(fillPerfil, 48, 0, Math.PI * 2);
+        fillGeo.computeVertexNormals();
+        const fillBrush = new Brush(fillGeo, new THREE.MeshStandardMaterial());
+        // desplazar un poco para encajar mejor después del corte
+        fillBrush.position.z = -0.01;
+        fillBrush.updateMatrixWorld(true);
+
+        const filled = evaluator.evaluate(finalBrush, fillBrush, ADDITION);
+        filled.geometry.computeVertexNormals();
+
+        // --- Corte cóncavo interior: restamos una pequeña "copa" para dejar la concavidad ---
+        // Usamos una esfera recortada (cap) como sustractor
+        const cupGeo = new THREE.SphereGeometry(0.36, 32, 24);
+        const cupBrush = new Brush(cupGeo, new THREE.MeshStandardMaterial());
+        // posicionar ligeramente hacia el interior (ajusta Y/Z según necesidad)
+        cupBrush.position.set(0, 0.06, 0);
+        cupBrush.updateMatrixWorld(true);
+
+        const concaveResult = evaluator.evaluate(filled, cupBrush, SUBTRACTION);
+        concaveResult.geometry.computeVertexNormals();
+
+        // scale down to comfortable size and orient
+        const mesh = new THREE.Mesh(concaveResult.geometry, material);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.scale.set(0.8, 0.8, 0.8);
+
+        return mesh;
+    }
+
+    // extrusión simple para las orejas/soporte de cordón
+    _makeTab(material) {
         const shape = new THREE.Shape();
         // Perfil: rectángulo con semicírculo en la punta
         shape.moveTo(-0.010, 0.000);
@@ -242,12 +392,30 @@ export class Castanuelas extends THREE.Group {
 
     // Técnica 4: BARRIDO — cordel (TubeGeometry sobre CatmullRomCurve3)
     _buildCordel() {
+        shape.moveTo(0, 0);
+        shape.quadraticCurveTo(0.06, 0.02, 0.12, 0.08);
+        shape.lineTo(0.12, 0.18);
+        shape.quadraticCurveTo(0.06, 0.14, 0, 0.12);
+
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.006 });
+        const m = material.clone();
+        const mesh = new THREE.Mesh(geo, m);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.scale.set(0.25, 0.25, 0.25);
+        return mesh;
+    }
+
+    _makeCord() {
         const curve = new THREE.CatmullRomCurve3([
             new THREE.Vector3(-0.045,  0.030, 0.002),
             new THREE.Vector3(-0.015,  0.060, 0.012),
             new THREE.Vector3( 0.000,  0.075, 0.014),
             new THREE.Vector3( 0.015,  0.060, 0.012),
             new THREE.Vector3( 0.045,  0.030, 0.002),
+            new THREE.Vector3(-0.17, 0.02, 0.05),
+            new THREE.Vector3(-0.05, 0.02, 0.08),
+            new THREE.Vector3(0.05, 0.02, 0.08),
+            new THREE.Vector3(0.17, 0.02, 0.05),
         ]);
         const geo = new THREE.TubeGeometry(curve, 40, 0.003, 8, false);
         return new THREE.Mesh(geo, this._matCordel);
@@ -320,3 +488,69 @@ export class Castanuelas extends THREE.Group {
         return new THREE.CanvasTexture(canvas);
     }
 }
+        const geo = new THREE.TubeGeometry(curve, 24, 0.01, 8, false);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x2b1f12, roughness: 0.9 });
+        const mesh = new THREE.Mesh(geo, mat);
+        return mesh;
+    }
+
+    setRotacionActiva(flag) {
+        this._rotating = flag;
+    }
+
+    // called from the scene loop
+    update(dt) {
+        if (!this._rotating) return;
+        this._time += dt * this.hitSpeed;
+
+        // simple oscillation for a subtle idle movement
+        const idle = Math.sin(this._time * 0.6) * 0.03;
+        this.rotation.y = idle;
+
+        // small hit animation between halves
+        const hit = Math.sin(this._time) * this.hitAngle * 0.5;
+        this.left.rotation.z = 0.1 + hit;
+        this.right.rotation.z = -0.1 - hit;
+    }
+
+}
+
+// crea un CanvasTexture procedural tipo madera
+function createWoodTexture() {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // base
+    ctx.fillStyle = '#a06836';
+    ctx.fillRect(0, 0, size, size);
+
+    // rings
+    for (let i = 0; i < 120; i++) {
+        const alpha = 0.03 + Math.random() * 0.05;
+        ctx.fillStyle = `rgba(${80 + i % 60}, ${40 + i % 60}, ${20 + i % 40}, ${alpha})`;
+        const ry = size * (0.4 + 0.4 * Math.sin(i * 0.12));
+        ctx.beginPath();
+        ctx.ellipse(size/2, size/2, size * (0.4 - i * 0.002), ry, i * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // slight noise
+    const img = ctx.getImageData(0, 0, size, size);
+    for (let i = 0; i < img.data.length; i += 4) {
+        const v = (Math.random() - 0.5) * 12;
+        img.data[i] = Math.max(0, Math.min(255, img.data[i] + v));
+        img.data[i+1] = Math.max(0, Math.min(255, img.data[i+1] + v*0.6));
+        img.data[i+2] = Math.max(0, Math.min(255, img.data[i+2] + v*0.3));
+    }
+    ctx.putImageData(img, 0, 0);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1, 1);
+    tex.needsUpdate = true;
+    return tex;
+}
+
