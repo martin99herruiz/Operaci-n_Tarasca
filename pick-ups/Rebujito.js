@@ -150,7 +150,8 @@ class Rebujito extends THREE.Object3D {
         });
 
         const limon = new THREE.Mesh(geo, this.materialLimon);
-        limon.rotation.x = Math.PI / 2;
+        limon.rotation.z = Math.PI / 2;
+        limon.rotation.y = Math.PI / 2;
         limon.position.set(0, 2.3, 0.6);
         limon.renderOrder = 5;
         return limon;
