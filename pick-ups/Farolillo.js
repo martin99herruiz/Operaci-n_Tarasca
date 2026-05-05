@@ -191,7 +191,9 @@ class Farolillo extends THREE.Object3D {
      * Actualiza el estado de la animación
      */
     update() {
+      /*
         this.rotation.y += 0.01;
+        */
     }
 }
 

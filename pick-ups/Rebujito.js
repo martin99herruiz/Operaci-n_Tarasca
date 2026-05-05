@@ -188,11 +188,7 @@ class Rebujito extends THREE.Object3D {
         hielo.renderOrder = 3;
 
         // Almacenamiento de metadatos para la lógica de flotación en update().
-        hielo.userData = {
-            baseX: x, baseY: y, baseZ: z,
-            fase: Math.random() * Math.PI * 2,
-            velRot: 0.4 + Math.random() * 0.6
-        };
+        hielo.userData = { baseX: x, baseY: y, baseZ: z, fase: Math.random() * Math.PI * 2, velRot: 0.4 + Math.random() * 0.6};
 
         return hielo;
     }

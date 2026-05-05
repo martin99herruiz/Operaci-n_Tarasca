@@ -241,7 +241,9 @@ class Abanico extends THREE.Object3D {
      */
     update(delta) {
         this.tiempo += delta;
-
+        /**
+         * 
+         * 
         if (this.rotacionActiva) {
             this.rotation.y += 0.5 * delta;
         }
@@ -252,6 +254,8 @@ class Abanico extends THREE.Object3D {
             this.anguloActual = this.anguloMin + t * (this.anguloMax - this.anguloMin);
             this.actualizar();
         }
+         */
+       
     }
 }
 
