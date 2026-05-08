@@ -19,8 +19,15 @@ class MyScene extends THREE.Scene {
     this.axis = new THREE.AxesHelper(2)
     this.add(this.axis)
 
-    this.model = new Laberinto()
+    const laberintoCargado = $.Deferred()
+    this.model = new Laberinto('./laberinto.txt', laberintoCargado)
     this.add(this.model)
+
+    laberintoCargado.done(() => {
+      console.log(
+        `Laberinto cargado: ${this.model.zNumBloques} filas x ${this.model.xNumBloques} columnas`
+      )
+    })
   }
 
   createCamera() {
@@ -31,7 +38,7 @@ class MyScene extends THREE.Scene {
       100
     )
 
-    this.camera.position.set(8, 8, 8)
+    this.camera.position.set(0, 18, 18)
     const look = new THREE.Vector3(0, 0, 0)
     this.camera.lookAt(look)
     this.add(this.camera)
@@ -44,8 +51,8 @@ class MyScene extends THREE.Scene {
   }
 
   createGround() {
-    const geometryGround = new THREE.BoxGeometry(20, 0.2, 20)
-    const materialGround = new THREE.MeshStandardMaterial({ color: 0x888888 })
+    const geometryGround = new THREE.BoxGeometry(18, 0.2, 18)
+    const materialGround = new THREE.MeshStandardMaterial({ color: 0x476340 })
 
     const ground = new THREE.Mesh(geometryGround, materialGround)
     ground.position.y = -0.1
@@ -57,7 +64,7 @@ class MyScene extends THREE.Scene {
     const gui = new GUI()
 
     this.guiControls = {
-      lightPower: 50.0,
+      lightPower: 350.0,
       ambientIntensity: 0.5,
       axisOnOff: true
     }

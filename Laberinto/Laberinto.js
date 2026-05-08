@@ -2,35 +2,122 @@ import * as THREE from 'three'
 
 class Laberinto extends THREE.Object3D {
 
-  constructor() {
+  static WALL = 'X'
+  static FREE = ' '
+
+  constructor(archivo, sincronizacion = null) {
     super()
 
-    this.createWalls()
+    this.anchoBloque = 1.0
+    this.altoBloque = 2.6
+    this.matriz = []
+    this.xNumBloques = 0
+    this.zNumBloques = 0
+
+    this.bloqueGeo = new THREE.BoxGeometry(
+      this.anchoBloque,
+      this.altoBloque,
+      this.anchoBloque
+    )
+    this.bloqueGeo.translate(0, this.altoBloque / 2, 0)
+
+    this.bloqueMat = new THREE.MeshStandardMaterial({
+      color: 0x7b4a2a,
+      roughness: 0.8,
+      metalness: 0.05
+    })
+
+    const loader = new THREE.FileLoader()
+    loader.load(archivo, (file) => {
+      this.cargarDesdeTexto(file)
+
+      if (sincronizacion) {
+        sincronizacion.resolve()
+      }
+    })
   }
 
-  createWalls() {
+  cargarDesdeTexto(texto) {
+    const lineas = texto
+      .replace(/\r/g, '')
+      .split('\n')
+      .filter((linea, indice, array) => linea.length > 0 || indice < array.length - 1)
 
-    const material = new THREE.MeshStandardMaterial({ color: 0x3333aa })
+    this.zNumBloques = lineas.length
+    this.xNumBloques = Math.max(...lineas.map((linea) => linea.length))
+    this.matriz = lineas.map((linea) => linea.padEnd(this.xNumBloques, Laberinto.FREE))
 
-    // Muro simple de prueba
-    const wall = new THREE.Mesh(
-      new THREE.BoxGeometry(10, 3, 0.5),
-      material
-    )
+    this.crearMuros()
+    this.centrarEnOrigen()
+  }
 
-    wall.position.set(0, 1.5, -5)
+  crearMuros() {
+    for (let fila = 0; fila < this.zNumBloques; fila++) {
+      for (let columna = 0; columna < this.xNumBloques; columna++) {
+        if (this.matriz[fila][columna] === Laberinto.WALL) {
+          const bloque = new THREE.Mesh(this.bloqueGeo, this.bloqueMat)
+          bloque.position.set(
+            columna * this.anchoBloque,
+            0,
+            fila * this.anchoBloque
+          )
+          bloque.castShadow = true
+          bloque.receiveShadow = true
+          this.add(bloque)
+        }
+      }
+    }
+  }
 
-    this.add(wall)
+  centrarEnOrigen() {
+    const desfaseX = ((this.xNumBloques - 1) / 2) * this.anchoBloque
+    const desfaseZ = ((this.zNumBloques - 1) / 2) * this.anchoBloque
 
-    // Otro muro
-    const wall2 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 3, 10),
-      material
-    )
+    this.position.x = -desfaseX
+    this.position.z = -desfaseZ
+  }
 
-    wall2.position.set(-5, 1.5, 0)
+  getMundoFromCelda(fila, columna, salida) {
+    salida.x = columna * this.anchoBloque + this.position.x
+    salida.z = fila * this.anchoBloque + this.position.z
+    return salida
+  }
 
-    this.add(wall2)
+  getCeldaFromMundo(posicion) {
+    return {
+      fila: Math.round((posicion.z - this.position.z) / this.anchoBloque),
+      columna: Math.round((posicion.x - this.position.x) / this.anchoBloque)
+    }
+  }
+
+  esMuro(fila, columna) {
+    if (
+      fila < 0 ||
+      columna < 0 ||
+      fila >= this.zNumBloques ||
+      columna >= this.xNumBloques
+    ) {
+      return true
+    }
+
+    return this.matriz[fila][columna] === Laberinto.WALL
+  }
+
+  puedeMoverseA(posicion, radio = 0.25) {
+    const puntos = [
+      new THREE.Vector3(posicion.x - radio, posicion.y, posicion.z - radio),
+      new THREE.Vector3(posicion.x + radio, posicion.y, posicion.z - radio),
+      new THREE.Vector3(posicion.x - radio, posicion.y, posicion.z + radio),
+      new THREE.Vector3(posicion.x + radio, posicion.y, posicion.z + radio)
+    ]
+
+    return puntos.every((punto) => {
+      const celda = this.getCeldaFromMundo(punto)
+      return !this.esMuro(celda.fila, celda.columna)
+    })
+  }
+
+  update() {
   }
 }
 
