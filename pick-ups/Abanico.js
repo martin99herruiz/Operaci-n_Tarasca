@@ -239,13 +239,12 @@ class Abanico extends THREE.Object3D {
      * Ciclo de actualización.
      * Controla la rotación global del objeto y la animación armónica de apertura/cierre.
      */
-    update(delta) {
-        this.tiempo += delta;
-        /**
-         * 
-         * 
+    update(delta = 0) {
+        const segundos = delta > 10 ? delta / 1000 : delta;
+        this.tiempo += segundos;
+
         if (this.rotacionActiva) {
-            this.rotation.y += 0.5 * delta;
+            this.rotation.y += 0.5 * segundos;
         }
 
         if (this.animacionActiva) {
@@ -254,8 +253,19 @@ class Abanico extends THREE.Object3D {
             this.anguloActual = this.anguloMin + t * (this.anguloMax - this.anguloMin);
             this.actualizar();
         }
-         */
-       
+    }
+
+    setRotacionActiva(valor) {
+        this.rotacionActiva = valor;
+    }
+
+    setAnimacionActiva(valor) {
+        this.animacionActiva = valor;
+    }
+
+    setApertura(valor) {
+        this.anguloActual = THREE.MathUtils.clamp(valor, this.anguloMin, this.anguloMax);
+        this.actualizar();
     }
 }
 

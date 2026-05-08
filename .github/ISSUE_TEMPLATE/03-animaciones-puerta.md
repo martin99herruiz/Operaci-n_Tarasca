@@ -3,7 +3,7 @@ name: "Defensa 3 #3: Animaciones + Puerta Salida"
 about: Animar pick-ups articulados y puerta de salida
 title: "Defensa 3 #3: Animaciones + Puerta Salida"
 labels: "defensa-3,animacion"
-assignees: "María"
+assignees: "Martin"
 
 ---
 

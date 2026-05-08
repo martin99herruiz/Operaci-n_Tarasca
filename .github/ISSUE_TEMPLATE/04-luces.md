@@ -3,7 +3,7 @@ name: "Defensa 3 #4: Sistema de Luces"
 about: Implementar luces de diferentes colores con al menos una dinámica
 title: "Defensa 3 #4: Sistema de Luces"
 labels: "defensa-3,iluminacion"
-assignees: "Martin"
+assignees: "María"
 
 ---
 
