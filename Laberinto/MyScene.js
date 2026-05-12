@@ -50,7 +50,7 @@ class MyScene extends THREE.Scene {
     this.bindEvents()
 
     const laberintoCargado = $.Deferred()
-    this.model = new Laberinto('./laberinto.txt', laberintoCargado)
+    this.model = new Laberinto('./laberinto.txt?v=wide2', laberintoCargado)
     this.add(this.model)
 
     laberintoCargado.done(() => {
@@ -204,10 +204,17 @@ class MyScene extends THREE.Scene {
       `Laberinto cargado: ${this.model.zNumBloques} filas x ${this.model.xNumBloques} columnas`
     )
 
-    this.placePlayerAtCell(1, 1)
+    this.placePlayerAtMazePosition(1.5, 1.5)
     this.placeDoorAtCell(25, 25)
     this.configureTopCamera()
     this.updateHud()
+  }
+
+  placePlayerAtMazePosition(fila, columna) {
+    this.tmpPosition.x = columna * this.model.anchoBloque + this.model.position.x
+    this.tmpPosition.z = fila * this.model.anchoBloque + this.model.position.z
+    this.camera.position.set(this.tmpPosition.x, this.playerHeight, this.tmpPosition.z)
+    this.camera.lookAt(this.tmpPosition.x + 1, this.playerHeight, this.tmpPosition.z)
   }
 
   placePlayerAtCell(fila, columna) {
