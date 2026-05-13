@@ -18,6 +18,9 @@ class Farolillo extends THREE.Object3D {
         this.pliegues = 18;
         this.amplitudPliegue = 0.065;
 
+        this.userData.recogible = true;
+        this.recogido = false;
+
         // --- CONFIGURACIÓN DE MATERIALES (PBR) ---
         
         // Material Metálico: Simulación de plata pulida con alta reflectividad
@@ -190,10 +193,15 @@ class Farolillo extends THREE.Object3D {
     /**
      * Actualiza el estado de la animación
      */
-    update() {
-      /*
-        this.rotation.y += 0.01;
-        */
+    update(delta) {
+        // Si la rotación general está activa en el panel
+        if (this.rotacionActiva) {
+            this.rotation.y += delta * 0.5; 
+        }
+    }
+
+    setRotacionActiva(valor) {
+        this.rotacionActiva = valor;
     }
 }
 

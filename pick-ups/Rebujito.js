@@ -13,6 +13,9 @@ class Rebujito extends THREE.Object3D {
         this.tiempo = 0;
         this.hielos = [];
 
+        this.userData.recogible = true;
+        this.recogido = false;
+
         // ==========================================
         // CONFIGURACIÓN DE MATERIALES (Físicamente realistas)
         // ==========================================

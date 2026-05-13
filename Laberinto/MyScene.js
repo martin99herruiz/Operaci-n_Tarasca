@@ -3,6 +3,11 @@ import * as TWEEN from '../libs/tween.esm.js'
 import { GUI } from 'gui'
 import { PointerLockControls } from '../libs/PointerLockControls.js'
 
+import { Abanico } from '../pick-ups/Abanico.js'
+import { Farolillo } from '../pick-ups/Farolillo.js'
+import { Castanuelas } from '../pick-ups/Castanuelas.js'
+import { Rebujito } from '../pick-ups/Rebujito.js'
+
 import { Laberinto } from './Laberinto.js'
 
 class MyScene extends THREE.Scene {
@@ -50,7 +55,7 @@ class MyScene extends THREE.Scene {
     this.bindEvents()
 
     const laberintoCargado = $.Deferred()
-    this.model = new Laberinto('./laberinto.txt?v=wide2', laberintoCargado)
+    this.model = new Laberinto('./laberinto.txt', laberintoCargado)
     this.add(this.model)
 
     laberintoCargado.done(() => {
@@ -204,17 +209,27 @@ class MyScene extends THREE.Scene {
       `Laberinto cargado: ${this.model.zNumBloques} filas x ${this.model.xNumBloques} columnas`
     )
 
-    this.placePlayerAtMazePosition(1.5, 1.5)
+    this.placePlayerAtCell(1, 1)
     this.placeDoorAtCell(25, 25)
+
+    // 1. Crear el Abanico (Articulado y animado para la Defensa 3)
+    const abanico = new Abanico()
+    this.posicionarPickup(abanico, 2, 2) 
+
+    // 2. Crear el Farolillo (La Llave requerida por la práctica)
+    const llaveFarolillo = new Farolillo()
+    this.posicionarPickup(llaveFarolillo, 5, 14) 
+
+    // 3. Crear las Castañuelas
+    const castanuelas = new Castanuelas()
+    this.posicionarPickup(castanuelas, 22, 5)
+
+    // 4. Crear el Rebujito
+    const rebujito = new Rebujito()
+    this.posicionarPickup(rebujito, 23, 21)
+
     this.configureTopCamera()
     this.updateHud()
-  }
-
-  placePlayerAtMazePosition(fila, columna) {
-    this.tmpPosition.x = columna * this.model.anchoBloque + this.model.position.x
-    this.tmpPosition.z = fila * this.model.anchoBloque + this.model.position.z
-    this.camera.position.set(this.tmpPosition.x, this.playerHeight, this.tmpPosition.z)
-    this.camera.lookAt(this.tmpPosition.x + 1, this.playerHeight, this.tmpPosition.z)
   }
 
   placePlayerAtCell(fila, columna) {
@@ -229,6 +244,55 @@ class MyScene extends THREE.Scene {
     const halfBlock = this.model.anchoBloque * 0.5
     this.doorGroup.position.set(this.tmpDoorPosition.x - 0.45, 0, this.tmpDoorPosition.z + halfBlock)
     this.doorGroup.visible = true
+  }
+
+  posicionarPickup(objeto, fila, columna) {
+    this.model.getMundoFromCelda(fila, columna, this.tmpPosition)
+    
+    objeto.position.set(this.tmpPosition.x, 0.5, this.tmpPosition.z)
+    
+    this.add(objeto)                     // Para que se vean
+    this.pickups.push(objeto)            // Para poder recogerlos con el Raycaster
+    this.registerAnimatedObject(objeto)  // Para que se muevan solos (animación continua) 
+    
+    objeto.userData.recogible = true
+  }
+
+  tryPickUp() {
+    // Apuntamos el raycaster desde el centro de la pantalla
+    this.raycaster.setFromCamera(this.centerPointer, this.camera);
+
+    // Buscamos si el rayo choca con algo en nuestra lista de pickups
+    const intersecciones = this.raycaster.intersectObjects(this.pickups, true);
+
+    if (intersecciones.length > 0) {
+        const objetoTocado = intersecciones[0].object;
+        const distancia = intersecciones[0].distance;
+
+        // Buscamos el padre que tenga la propiedad 'recogible' (por si el rayo toca una parte del objeto)
+        let pickupRaiz = objetoTocado;
+        while (pickupRaiz.parent && !pickupRaiz.userData.recogible) {
+            pickupRaiz = pickupRaiz.parent;
+        }
+
+        // REQUISITOS: Que sea recogible, no esté recogido ya y esté CERCA (interactionDistance)
+        if (pickupRaiz.userData.recogible && !pickupRaiz.recogido && distancia < this.interactionDistance) {
+            this.recogerObjeto(pickupRaiz);
+        }
+    }
+  }
+
+  recogerObjeto(objeto) {
+    objeto.recogido = true;
+    objeto.visible = false; // Lo hacemos invisible
+    
+    // Sumamos al contador interno y actualizamos el texto de arriba a la izquierda
+    this.registrarPickupRecogido(); 
+    
+    this.setHudMessage("¡Has recogido un pick-up!");
+    
+    // Opcional: imprimir en consola para depurar
+    console.log("Pickups recogidos:", this.pickupsRecogidosActuales());
   }
 
   configureTopCamera() {
@@ -266,7 +330,11 @@ class MyScene extends THREE.Scene {
       return
     }
 
-    this.tryInteractWithDoor()
+    // 1. Intentamos abrir la puerta (esto ya lo tienes)
+    this.tryInteractWithDoor();
+
+    // 2. NUEVO: Intentamos recoger un pick-up
+    this.tryPickUp();
   }
 
   tryInteractWithDoor() {

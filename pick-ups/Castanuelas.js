@@ -9,6 +9,9 @@ class Castanuelas extends THREE.Object3D {
         this.tiempo = 0;
         this.rotacionActiva = true;
 
+        this.userData.recogible = true;
+        this.recogido = false;
+
         // =====================================================
         // MATERIALES
         // =====================================================
