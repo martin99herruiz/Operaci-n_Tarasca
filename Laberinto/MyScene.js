@@ -200,6 +200,34 @@ class MyScene extends THREE.Scene {
     this.doorKnob.userData.interactable = 'door'
     this.doorPivot.add(this.doorKnob)
 
+    // Hueco de cerradura: una placa metalica fina con el hueco negro encima.
+    // Se separa ligeramente de la hoja para evitar z-fighting con la puerta.
+    const lockPlateMaterial = new THREE.MeshBasicMaterial({ color: 0xb58a2a })
+    const lockMaterial = new THREE.MeshBasicMaterial({ color: 0x050505 })
+    const lockGroup = new THREE.Group()
+    const lockPlate = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.24), lockPlateMaterial)
+    const lockHead = new THREE.Mesh(new THREE.CircleGeometry(0.038, 24), lockMaterial)
+    const lockSlot = new THREE.Mesh(new THREE.PlaneGeometry(0.034, 0.11), lockMaterial)
+    const lockX = doorWidth * 0.82
+    const lockY = doorHeight * 0.35
+    const lockZ = -panelDepth * 0.86
+    lockPlate.position.set(lockX, lockY, lockZ)
+    lockHead.position.set(lockX, lockY + 0.048, lockZ - 0.002)
+    lockSlot.position.set(lockX, lockY - 0.018, lockZ - 0.002)
+    lockPlate.rotation.y = Math.PI
+    lockHead.rotation.y = Math.PI
+    lockSlot.rotation.y = Math.PI
+    lockPlate.renderOrder = 2
+    lockHead.renderOrder = 3
+    lockSlot.renderOrder = 3
+    lockGroup.add(lockPlate, lockHead, lockSlot)
+    this.doorPivot.add(lockGroup)
+
+    this.doorKey = this.createDoorKey()
+    this.doorKey.position.set(lockX, lockY, lockZ - 0.38)
+    this.doorKey.visible = false
+    this.doorPivot.add(this.doorKey)
+
     const frameMaterial = new THREE.MeshStandardMaterial({
       color: 0x2b1a12,
       roughness: 0.75
@@ -217,6 +245,28 @@ class MyScene extends THREE.Scene {
 
     this.doorGroup.visible = false
     this.add(this.doorGroup)
+  }
+
+  createDoorKey() {
+    // La llave que abre la puerta es el propio pick-up Farolillo, reutilizado a
+    // menor escala y orientado para entrar en la cerradura.
+    const keyGroup = new THREE.Group()
+    const pickupKey = new Farolillo()
+
+    if (typeof pickupKey.setRotacionActiva === 'function') {
+      pickupKey.setRotacionActiva(false)
+    }
+
+    pickupKey.userData.recogible = false
+    pickupKey.recogido = true
+    pickupKey.scale.setScalar(0.12)
+    // El giro en X coloca el paleton/dientes mirando hacia la cerradura.
+    pickupKey.rotation.x = Math.PI / 2
+    pickupKey.rotation.y = Math.PI / 2
+    pickupKey.rotation.z = Math.PI
+
+    keyGroup.add(pickupKey)
+    return keyGroup
   }
 
   createPlayerMarker() {
@@ -278,6 +328,7 @@ class MyScene extends THREE.Scene {
 
     // 2. Crear el Farolillo (La Llave requerida por la práctica)
     const llaveFarolillo = new Farolillo()
+    llaveFarolillo.setRotacionActiva(true)
     this.posicionarPickup(llaveFarolillo, 5, 14) 
 
     // 3. Crear las Castañuelas
@@ -535,12 +586,56 @@ class MyScene extends THREE.Scene {
     }
 
     this.doorOpening = true
-    this.setHudMessage('Puerta abierta')
+    this.setHudMessage('Abriendo cerradura...')
     this.flashKnob(0x226611)
 
     if (this.doorTween) {
       this.doorTween.stop()
     }
+
+    if (this.keyInsertTween) {
+      this.keyInsertTween.stop()
+    }
+
+    if (this.keyTurnTween) {
+      this.keyTurnTween.stop()
+    }
+
+    this.animateKeyUnlock()
+  }
+
+  animateKeyUnlock() {
+    const startZ = -0.38
+    const insertedZ = -0.13
+    const keyState = { z: startZ, turn: 0 }
+
+    this.doorKey.visible = true
+    this.doorKey.position.z = startZ
+    this.doorKey.rotation.set(0, 0, 0)
+
+    this.keyInsertTween = new TWEEN.Tween(keyState)
+      .to({ z: insertedZ }, 520)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => {
+        this.doorKey.position.z = keyState.z
+      })
+      .onComplete(() => {
+        this.keyTurnTween = new TWEEN.Tween(keyState)
+          .to({ turn: Math.PI * 1.75 }, 620)
+          .easing(TWEEN.Easing.Quadratic.InOut)
+          .onUpdate(() => {
+            this.doorKey.rotation.z = keyState.turn
+          })
+          .onComplete(() => {
+            this.startDoorOpening()
+          })
+          .start()
+      })
+      .start()
+  }
+
+  startDoorOpening() {
+    this.setHudMessage('Puerta abierta')
 
     this.doorTweenState.p = this.doorOpenAmount
     // Tween de apertura: interpola una variable p de 0 a 1 y la convierte en rotacion.

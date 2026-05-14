@@ -20,6 +20,11 @@ class Farolillo extends THREE.Object3D {
 
         this.userData.recogible = true;
         this.recogido = false;
+        this.rotacionActiva = true;
+        this.tiempo = 0;
+        this.baseAnimacionY = null;
+        this.rotacionBaseX = 0;
+        this.rotacionBaseZ = 0;
 
         // --- CONFIGURACIÓN DE MATERIALES SIN ILUMINACIÓN ---
         
@@ -228,9 +233,19 @@ class Farolillo extends THREE.Object3D {
      * Actualiza el estado de la animación
      */
     update(delta) {
-        // Si la rotación general está activa en el panel
+        const segundos = delta > 10 ? delta / 1000 : delta;
+        this.tiempo += segundos;
+
+        if (this.baseAnimacionY === null) {
+            this.baseAnimacionY = this.position.y;
+        }
+
+        // Giro, balanceo y flotacion visibles mientras el pick-up espera ser recogido.
         if (this.rotacionActiva) {
-            this.rotation.y += delta * 0.5; 
+            this.rotation.y += segundos * 2.4;
+            this.rotation.x = this.rotacionBaseX + Math.sin(this.tiempo * 3.0) * 0.22;
+            this.rotation.z = this.rotacionBaseZ + Math.cos(this.tiempo * 2.5) * 0.16;
+            this.position.y = this.baseAnimacionY + Math.sin(this.tiempo * 2.4) * 0.14;
         }
     }
 

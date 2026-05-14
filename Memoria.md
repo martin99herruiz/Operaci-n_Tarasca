@@ -134,6 +134,7 @@ La puerta esta formada por:
 - Hueco oscuro.
 - Hoja de la puerta.
 - Pomo.
+- Placa y hueco de cerradura.
 
 La hoja y el pomo forman parte de un mismo grupo con pivote, de forma que ambos rotan juntos durante la apertura.
 
@@ -143,7 +144,7 @@ La puerta solo se abre si:
 2. El jugador esta suficientemente cerca.
 3. Se han recogido todos los pick-ups.
 
-La apertura se anima mediante `TWEEN`, interpolando una variable de apertura y convirtiendola en una rotacion de la hoja.
+La apertura se anima mediante `TWEEN`. Antes de abrir la hoja, se reutiliza el pick-up Farolillo, que tiene forma de llave, como llave de la cerradura: aparece frente a la puerta, se introduce en el hueco, gira y despues comienza la animacion de apertura de la puerta.
 
 ## 10. Modelo jerarquico del pick-up articulado
 
