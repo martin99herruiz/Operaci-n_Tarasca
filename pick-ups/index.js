@@ -16,8 +16,7 @@ let carpetaObjeto = null;
 
 const effectController = {
     objeto: 'abanico',
-    girar: true,
-    luz: true
+    girar: true
 };
 
 init();
@@ -28,7 +27,6 @@ function init() {
     crearEscena();
     crearCamara();
     crearControles();
-    crearLuces();
     crearSuelo();
     crearGUI();
 
@@ -52,8 +50,6 @@ function crearRenderer() {
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     document.body.appendChild(renderer.domElement);
 }
@@ -91,33 +87,14 @@ function crearControles() {
     controls.update();
 }
 
-function crearLuces() {
-    const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.75);
-    scene.add(luzAmbiente);
-
-    const luzDireccional = new THREE.DirectionalLight(0xffffff, 1.1);
-    luzDireccional.position.set(5, 10, 6);
-    luzDireccional.castShadow = true;
-    scene.add(luzDireccional);
-
-    const luzRelleno = new THREE.DirectionalLight(0xffffff, 0.35);
-    luzRelleno.position.set(-4, 3, -3);
-    scene.add(luzRelleno);
-}
-
 function crearSuelo() {
     const suelo = new THREE.Mesh(
         new THREE.PlaneGeometry(20, 20),
-        new THREE.MeshStandardMaterial({
-            color: 0xe9e9e9,
-            roughness: 0.95,
-            metalness: 0.0
-        })
+        new THREE.MeshBasicMaterial({ color: 0xe9e9e9 })
     );
 
     suelo.rotation.x = -Math.PI / 2;
     suelo.position.y = -1.1;
-    suelo.receiveShadow = true;
     scene.add(suelo);
 }
 
@@ -131,14 +108,6 @@ function crearGUI() {
         .onChange((valor) => {
             if (objetoActual && typeof objetoActual.setRotacionActiva === 'function') {
                 objetoActual.setRotacionActiva(valor);
-            }
-        });
-
-    carpetaGeneral.add(effectController, 'luz')
-        .name('Activar luz')
-        .onChange((valor) => {
-            if (objetoActual && typeof objetoActual.setLuzActiva === 'function') {
-                objetoActual.setLuzActiva(valor);
             }
         });
 
@@ -165,13 +134,6 @@ function reconstruirPanelObjeto() {
         carpetaObjeto.add(paramsRotacion, 'rotacion')
             .name('Rotación')
             .onChange((v) => ctrl.setRotacionActiva(v));
-    }
-
-    if (typeof ctrl.setLuzActiva === 'function') {
-        const paramsLuz = { luz: effectController.luz };
-        carpetaObjeto.add(paramsLuz, 'luz')
-            .name('Luz')
-            .onChange((v) => ctrl.setLuzActiva(v));
     }
 
     // ---------------------------------
@@ -260,15 +222,6 @@ function limpiarObjetoActual() {
     }
 }
 
-function activarSombras(objeto) {
-    objeto.traverse((nodo) => {
-        if (nodo.isMesh) {
-            nodo.castShadow = true;
-            nodo.receiveShadow = true;
-        }
-    });
-}
-
 function cambiarObjeto(tipo) {
     limpiarObjetoActual();
 
@@ -299,19 +252,11 @@ function cambiarObjeto(tipo) {
             break;
     }
 
-    activarSombras(objetoActual);
-
     // Sincronizar panel general con los setters del objeto
     if (typeof objetoActual.setRotacionActiva === 'function') {
         objetoActual.setRotacionActiva(effectController.girar);
     } else if ('rotacionActiva' in objetoActual) {
         objetoActual.rotacionActiva = effectController.girar;
-    }
-
-    if (typeof objetoActual.setLuzActiva === 'function') {
-        objetoActual.setLuzActiva(effectController.luz);
-    } else if ('luzActiva' in objetoActual) {
-        objetoActual.luzActiva = effectController.luz;
     }
 
     scene.add(objetoActual);

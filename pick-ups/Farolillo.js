@@ -21,20 +21,16 @@ class Farolillo extends THREE.Object3D {
         this.userData.recogible = true;
         this.recogido = false;
 
-        // --- CONFIGURACIÓN DE MATERIALES (PBR) ---
+        // --- CONFIGURACIÓN DE MATERIALES SIN ILUMINACIÓN ---
         
-        // Material Metálico: Simulación de plata pulida con alta reflectividad
-        this.materialPlata = new THREE.MeshStandardMaterial({
-            color: 0xD1D1D1, 
-            metalness: 0.9,
-            roughness: 0.1
+        // Metal de la llave: laton envejecido, mas coherente con una llave antigua.
+        this.materialPlata = new THREE.MeshBasicMaterial({
+            color: 0xc79633
         });
 
-        // Material Papel: Doble cara para visibilidad total y textura procedural
-        this.materialPapel = new THREE.MeshStandardMaterial({
+        // Papel de farolillo: rojo con lunares y relieve suave de pliegues.
+        this.materialPapel = new THREE.MeshBasicMaterial({
             map: this.crearTexturaPapelConLunares(),
-            roughness: 0.95,
-            metalness: 0.2,
             side: THREE.DoubleSide
         });
 
@@ -93,7 +89,7 @@ class Farolillo extends THREE.Object3D {
 
         const geoPaleton = new THREE.ExtrudeGeometry(shape, {
             depth: 0.12,
-            bevelEnabled: true, // Añade biselado para capturar mejor la luz
+            bevelEnabled: true,
             bevelThickness: 0.02,
             bevelSize: 0.02,
             bevelSegments: 5
@@ -163,16 +159,29 @@ class Farolillo extends THREE.Object3D {
 
     /**
      * Técnica: Texturizado Procedural mediante Canvas
-     * Genera dinámicamente un patrón de lunares blancos sobre fondo verde
+     * Genera dinámicamente un patrón de lunares blancos sobre fondo rojo.
      */
     crearTexturaPapelConLunares() {
         const canvas = document.createElement('canvas');
         canvas.width = 1024; canvas.height = 512;
         const ctx = canvas.getContext('2d');
 
-        // Color base de feria
-        ctx.fillStyle = '#115715';
+        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        grad.addColorStop(0, '#d83a28');
+        grad.addColorStop(0.5, '#b71917');
+        grad.addColorStop(1, '#7f1110');
+        ctx.fillStyle = grad;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = 'rgba(120, 0, 0, 0.18)';
+        ctx.lineWidth = 3;
+        for (let col = 0; col <= this.pliegues; col++) {
+            const x = (canvas.width / this.pliegues) * col;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
 
         // Algoritmo de distribución de lunares (rejilla alternada)
         const anchoCol = canvas.width / this.pliegues;
@@ -187,6 +196,31 @@ class Farolillo extends THREE.Object3D {
         }
         const textura = new THREE.CanvasTexture(canvas);
         textura.wrapS = THREE.RepeatWrapping; // Repetición horizontal
+        return textura;
+    }
+
+    crearRelievePapel() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const anchoCol = canvas.width / this.pliegues;
+        for (let col = 0; col <= this.pliegues; col++) {
+            const x = anchoCol * col;
+            const grad = ctx.createLinearGradient(x - anchoCol * 0.5, 0, x + anchoCol * 0.5, 0);
+            grad.addColorStop(0, '#707070');
+            grad.addColorStop(0.5, '#9a9a9a');
+            grad.addColorStop(1, '#707070');
+            ctx.fillStyle = grad;
+            ctx.fillRect(x - anchoCol * 0.5, 0, anchoCol, canvas.height);
+        }
+
+        const textura = new THREE.CanvasTexture(canvas);
+        textura.wrapS = THREE.RepeatWrapping;
         return textura;
     }
 

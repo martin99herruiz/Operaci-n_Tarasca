@@ -33,6 +33,7 @@ class MyScene extends THREE.Scene {
     this.pickupTeleportIndex = 0
     this.doorSurfaceOffset = 0.08
     this.animatedObjects = []
+    this.lightTime = 0
 
     this.keys = {
       forward: false,
@@ -116,6 +117,12 @@ class MyScene extends THREE.Scene {
     this.fillLight = new THREE.PointLight(0x5fb7ff, 120)
     this.fillLight.position.set(-4, 2.5, -4)
     this.add(this.fillLight)
+
+    // Luz cambiante exigida en la Defensa 4: aporta un acento de color que
+    // varia suavemente durante el juego.
+    this.dynamicLight = new THREE.PointLight(0xff6a3d, 85, 9, 1.6)
+    this.dynamicLight.position.set(4.5, 2.4, 3.5)
+    this.add(this.dynamicLight)
   }
 
   createGround() {
@@ -665,6 +672,14 @@ class MyScene extends THREE.Scene {
     this.animatedObjects.forEach((object) => object.update(delta))
   }
 
+  updateLights(delta) {
+    this.lightTime += delta
+
+    const hue = (0.04 + Math.sin(this.lightTime * 0.7) * 0.05 + 1) % 1
+    this.dynamicLight.color.setHSL(hue, 0.85, 0.55)
+    this.dynamicLight.intensity = 70 + Math.sin(this.lightTime * 1.4) * 18
+  }
+
   updatePlayerMarker() {
     this.playerMarker.position.x = this.camera.position.x
     this.playerMarker.position.z = this.camera.position.z
@@ -745,6 +760,7 @@ class MyScene extends THREE.Scene {
     this.updatePlayer(delta)
     this.updateDoor(delta)
     this.updateAnimatedObjects(delta)
+    this.updateLights(delta)
     this.updatePlayerMarker()
     this.updateHud()
     this.renderScene()

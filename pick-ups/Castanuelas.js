@@ -16,17 +16,15 @@ class Castanuelas extends THREE.Object3D {
         // =====================================================
         // MATERIALES
         // =====================================================
-        this.materialMadera = new THREE.MeshStandardMaterial({
-            map: this.crearTexturaMadera(),
-            roughness: 0.55,
-            metalness: 0.08,
+        const texturaMadera = this.crearTexturaMaderaSuave();
+        this.materialMadera = new THREE.MeshBasicMaterial({
+            color: 0x9a6634,
+            map: texturaMadera,
             side: THREE.DoubleSide
         });
 
-        this.materialRelieve = new THREE.MeshStandardMaterial({
+        this.materialRelieve = new THREE.MeshBasicMaterial({
             color: 0x6f3518,
-            roughness: 0.55,
-            metalness: 0.05,
             side: THREE.DoubleSide
         });
 
@@ -60,11 +58,6 @@ class Castanuelas extends THREE.Object3D {
         // Creamos las dos conchas
         this.conchaA = new THREE.Mesh(geometriaConcha, this.materialMadera);
         this.conchaB = new THREE.Mesh(geometriaConcha.clone(), this.materialMadera);
-
-        this.conchaA.castShadow = true;
-        this.conchaA.receiveShadow = true;
-        this.conchaB.castShadow = true;
-        this.conchaB.receiveShadow = true;
 
         // Colocamos los pivotes en la zona superior
         this.pivoteA.position.set(0, yBisagra, 0);
@@ -523,10 +516,8 @@ class Castanuelas extends THREE.Object3D {
     crearCordelConcha(bbox, zCordel) {
         const grupo = new THREE.Group();
 
-        const materialCordel = new THREE.MeshStandardMaterial({
-            color: 0x3a1608,
-            roughness: 0.9,
-            metalness: 0.0
+        const materialCordel = new THREE.MeshBasicMaterial({
+            color: 0x3a1608
         });
 
         const xLado = bbox.max.x * 0.24;
@@ -545,11 +536,6 @@ class Castanuelas extends THREE.Object3D {
         const geoNudo = new THREE.SphereGeometry(radioCordel * 1.7, 12, 8);
         const nudoIzq = new THREE.Mesh(geoNudo, materialCordel);
         const nudoDer = new THREE.Mesh(geoNudo.clone(), materialCordel);
-
-        cordel.castShadow = true;
-        cordel.receiveShadow = true;
-        nudoIzq.castShadow = true;
-        nudoDer.castShadow = true;
 
         nudoIzq.position.set(-xLado, yAnclaje, zCordel);
         nudoDer.position.set(xLado, yAnclaje, zCordel);
@@ -616,6 +602,73 @@ class Castanuelas extends THREE.Object3D {
         return textura;
     }
 
+    crearTexturaMaderaSuave() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        const base = ctx.createLinearGradient(0, 0, 512, 512);
+        base.addColorStop(0, '#9a6330');
+        base.addColorStop(0.5, '#b1783f');
+        base.addColorStop(1, '#7e4b24');
+        ctx.fillStyle = base;
+        ctx.fillRect(0, 0, 512, 512);
+
+        for (let i = 0; i < 42; i++) {
+            const y = Math.random() * 512;
+            ctx.strokeStyle = `rgba(67, 34, 12, ${0.035 + Math.random() * 0.045})`;
+            ctx.lineWidth = 1 + Math.random() * 2;
+
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+
+            for (let x = 0; x <= 512; x += 24) {
+                ctx.lineTo(
+                    x,
+                    y + Math.sin(x * 0.025 + i) * 10
+                );
+            }
+
+            ctx.stroke();
+        }
+
+        const textura = new THREE.CanvasTexture(canvas);
+        textura.wrapS = THREE.ClampToEdgeWrapping;
+        textura.wrapT = THREE.ClampToEdgeWrapping;
+        return textura;
+    }
+
+    crearRelieveMadera() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, 512, 512);
+
+        for (let i = 0; i < 36; i++) {
+            const x = Math.random() * 512;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.035 + Math.random() * 0.05})`;
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+
+            for (let y = 0; y <= 512; y += 18) {
+                ctx.lineTo(x + Math.sin(y * 0.035 + i) * 16, y);
+            }
+
+            ctx.stroke();
+        }
+
+        const textura = new THREE.CanvasTexture(canvas);
+        textura.wrapS = THREE.ClampToEdgeWrapping;
+        textura.wrapT = THREE.ClampToEdgeWrapping;
+        return textura;
+    }
+
     // =====================================================
     // ANIMACIÓN / INTERFAZ
     // =====================================================
@@ -646,9 +699,6 @@ class Castanuelas extends THREE.Object3D {
         this.animacionActiva = valor;
     }
 
-    setLuzActiva(valor) {
-        // Las castañuelas no tienen luz propia.
-    }
 }
 
 export { Castanuelas };

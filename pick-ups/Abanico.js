@@ -10,9 +10,9 @@ class Abanico extends THREE.Object3D {
     constructor() {
         super();
 
-        // --- CONFIGURACIÓN DE TEXTURAS PROCEDURALES ---
-        const texturaColor = new THREE.CanvasTexture(this.crearTexturaTela());
-        const texturaRelieve = new THREE.CanvasTexture(this.crearRelieveTela());
+        // --- CONFIGURACIÓN DE TEXTURAS ---
+        const texturaColor = this.cargarTexturaRepetida('../imgs/tela.jpeg', 2, 2);
+        const texturaMadera = this.cargarTexturaRepetida('../imgs/wood.jpg', 1.2, 3.5);
 
         // --- PARÁMETROS ESTRUCTURALES ---
         this.numModulos = 12;            
@@ -32,25 +32,21 @@ class Abanico extends THREE.Object3D {
         this.rotacionActiva = true;
         this.animacionActiva = true;
 
-        // --- DEFINICIÓN DE MATERIALES (PBR) ---
+        // --- DEFINICIÓN DE MATERIALES SIN ILUMINACIÓN ---
         
-        this.materialVarilla = new THREE.MeshStandardMaterial({
-            color: 0x4a2616,
-            roughness: 0.8,
-            metalness: 0.1
+        this.materialVarilla = new THREE.MeshBasicMaterial({
+            color: 0x8a4a1f,
+            map: texturaMadera
         });
 
-        this.materialTela = new THREE.MeshStandardMaterial({
+        this.materialTela = new THREE.MeshBasicMaterial({
+            color: 0xf8efd8,
             map: texturaColor,
-            bumpMap: texturaRelieve,
-            bumpScale: 0.05,
             side: THREE.DoubleSide
         });
 
-        this.materialBorde = new THREE.MeshStandardMaterial({
-            color: 0xd4af37,
-            metalness: 0.8,
-            roughness: 0.3
+        this.materialBorde = new THREE.MeshBasicMaterial({
+            color: 0xd4af37
         });
 
         // --- INICIALIZACIÓN DE ESTRUCTURA ---
@@ -63,6 +59,14 @@ class Abanico extends THREE.Object3D {
 
         this.construir();
         this.actualizar();
+    }
+
+    cargarTexturaRepetida(ruta, repeatX = 1, repeatY = 1) {
+        const textura = new THREE.TextureLoader().load(ruta);
+        textura.wrapS = THREE.RepeatWrapping;
+        textura.wrapT = THREE.RepeatWrapping;
+        textura.repeat.set(repeatX, repeatY);
+        return textura;
     }
 
     crearTexturaTela() {

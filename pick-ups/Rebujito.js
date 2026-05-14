@@ -28,56 +28,42 @@ class Rebujito extends THREE.Object3D {
         this.recogido = false;
 
         // ==========================================
-        // CONFIGURACIÓN DE MATERIALES (Físicamente realistas)
+        // CONFIGURACIÓN DE MATERIALES SIN ILUMINACIÓN
         // ==========================================
 
-        // Cristal: Utiliza MeshPhysicalMaterial para simular transmisión de luz.
-        // Se desactiva depthWrite para evitar artefactos visuales con transparencias internas.
-        this.materialCristal = new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,
-            metalness: 0.1,
-            roughness: 0.05,
-            transmission: 0.9,     // Permite el paso de luz a través del objeto.
+        this.materialCristal = new THREE.MeshBasicMaterial({
+            color: 0xeaf8ff,
             transparent: true,
-            opacity: 0.3,
+            opacity: 0.34,
             side: THREE.DoubleSide,
-            depthWrite: false      // Crítico para el correcto renderizado de capas transparentes.
+            depthWrite: false
         });
 
         // Textura Procedural: Generada en Canvas para simular efervescencia.
         this.texturaBurbujas = this.crearTexturaBurbujas();
+        this.texturaLimon = this.crearTexturaLimon();
+        this.texturaPajita = this.crearTexturaPajita();
 
-        // Líquido: Color amarillento pálido con mapa de rugosidad (Bump) dinámico.
-        this.materialLiquido = new THREE.MeshStandardMaterial({
-            color: 0xf5f2d0,
+        this.materialLiquido = new THREE.MeshBasicMaterial({
+            color: 0xf0d86a,
             transparent: true,
-            opacity: 0.75,
-            roughness: 0.6,
-            metalness: 0.1,
-            bumpMap: this.texturaBurbujas,
-            bumpScale: 0.02,
+            opacity: 0.82
         });
 
-        this.materialLimon = new THREE.MeshStandardMaterial({
-            color: 0xd4e01b,
-            roughness: 0.6
+        this.materialLimon = new THREE.MeshBasicMaterial({
+            color: 0xffe055,
+            map: this.texturaLimon
         });
 
-        this.materialPajita = new THREE.MeshStandardMaterial({
-            color: 0x00ffaa,
-            roughness: 0.3
+        this.materialPajita = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            map: this.texturaPajita
         });
 
-        // Hielo: Material físico con Índice de Refracción (IOR) específico.
-        this.materialHielo = new THREE.MeshPhysicalMaterial({
-            color: 0xdff7ff,
+        this.materialHielo = new THREE.MeshBasicMaterial({
+            color: 0xe8fbff,
             transparent: true,
-            opacity: 2,
-            transmission: 0.85,
-            roughness: 0.48,
-            metalness: 0.0,
-            ior: 1.31,            // Índice de refracción del agua sólida.
-            thickness: 0.25       // Grosor para el cálculo de absorción de luz.
+            opacity: 0.48
         });
 
         this.construir();
@@ -113,6 +99,59 @@ class Rebujito extends THREE.Object3D {
 
         const textura = new THREE.CanvasTexture(canvas);
         textura.wrapS = textura.wrapT = THREE.RepeatWrapping;
+        return textura;
+    }
+
+    crearTexturaLimon() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#ffe156';
+        ctx.fillRect(0, 0, 512, 512);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 10;
+        for (let i = 0; i < 12; i++) {
+            const angulo = (i / 12) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(256, 256);
+            ctx.lineTo(256 + Math.cos(angulo) * 250, 256 + Math.sin(angulo) * 250);
+            ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#f0b900';
+        ctx.lineWidth = 22;
+        ctx.beginPath();
+        ctx.arc(256, 256, 232, 0, Math.PI * 2);
+        ctx.stroke();
+
+        const textura = new THREE.CanvasTexture(canvas);
+        return textura;
+    }
+
+    crearTexturaPajita() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#fff5e8';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#d92828';
+        for (let y = -128; y < canvas.height + 128; y += 96) {
+            ctx.save();
+            ctx.translate(canvas.width / 2, y);
+            ctx.rotate(-Math.PI / 5);
+            ctx.fillRect(-canvas.width, -15, canvas.width * 2, 30);
+            ctx.restore();
+        }
+
+        const textura = new THREE.CanvasTexture(canvas);
+        textura.wrapS = textura.wrapT = THREE.RepeatWrapping;
+        textura.repeat.set(1, 3);
         return textura;
     }
 
@@ -177,18 +216,38 @@ class Rebujito extends THREE.Object3D {
      * Pajita: Generada mediante TubeGeometry siguiendo una curva de Catmull-Rom.
      */
     crearPajita() {
-        const curva = new THREE.CatmullRomCurve3([
+        const puntos = [
             new THREE.Vector3(0, 0.1, 0),
             new THREE.Vector3(-0.1, 2.2, 0),
             new THREE.Vector3(0.1, 2.5, 0),
             new THREE.Vector3(0.5, 2.6, 0)
-        ]);
+        ];
+        const curva = new THREE.CatmullRomCurve3(puntos);
 
         const geo = new THREE.TubeGeometry(curva, 64, 0.04, 12, false);
         const pajita = new THREE.Mesh(geo, this.materialPajita);
-        pajita.position.set(0.5, 0, 0);
         pajita.renderOrder = 4;
-        return pajita;
+
+        // TubeGeometry queda abierto por los extremos; se cierran con discos
+        // planos orientados con la tangente de la pajita.
+        const grupo = new THREE.Group();
+        const tapaInferior = this.crearTapaPajita(puntos[0], puntos[1]);
+        const tapaSuperior = this.crearTapaPajita(puntos[puntos.length - 1], puntos[puntos.length - 2]);
+        tapaInferior.renderOrder = 4;
+        tapaSuperior.renderOrder = 4;
+
+        grupo.add(pajita, tapaInferior, tapaSuperior);
+        grupo.position.set(0.5, 0, 0);
+        return grupo;
+    }
+
+    crearTapaPajita(posicion, puntoVecino) {
+        const geo = new THREE.CircleGeometry(0.041, 24);
+        const tapa = new THREE.Mesh(geo, this.materialPajita);
+        const direccion = new THREE.Vector3().subVectors(posicion, puntoVecino).normalize();
+        tapa.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direccion);
+        tapa.position.copy(posicion);
+        return tapa;
     }
 
     /**

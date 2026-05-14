@@ -9,8 +9,7 @@ let gui;
 
 // Objeto de control para la interfaz
 const effectController = {
-  girar: true,
-  luz: true
+  girar: true
 };
 
 init();
@@ -22,7 +21,6 @@ function init() {
   // =========================================================
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
   document.body.appendChild(renderer.domElement);
 
   // =========================================================
@@ -50,26 +48,14 @@ function init() {
   controls.update();
 
   // =========================================================
-  // Luces de escena
-  // =========================================================
-  const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.78);
-  scene.add(luzAmbiente);
-
-  const luzDir = new THREE.DirectionalLight(0xffffff, 1.15);
-  luzDir.position.set(5, 12, 4);
-  luzDir.castShadow = true;
-  scene.add(luzDir);
-
-  // =========================================================
   // Suelo
   // =========================================================
   const suelo = new THREE.Mesh(
     new THREE.PlaneGeometry(20, 20),
-    new THREE.MeshStandardMaterial({ color: 0xe9e9e9 })
+    new THREE.MeshBasicMaterial({ color: 0xe9e9e9 })
   );
   suelo.rotation.x = -Math.PI / 2;
   suelo.position.y = -1.10;
-  suelo.receiveShadow = true;
   scene.add(suelo);
 
   // =========================================================
@@ -96,12 +82,6 @@ function createGUI() {
       farolillo.setRotacionActiva(valor);
     });
 
-  // Checkbox para encender o apagar la luz interior
-  gui.add(effectController, 'luz')
-    .name('Encender luz')
-    .onChange((valor) => {
-      farolillo.setLuzActiva(valor);
-    });
 }
 
 function animate(time) {

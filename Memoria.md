@@ -210,22 +210,46 @@ El proyecto usa distintos tipos de materiales:
 - Materiales con textura en el canal de relieve.
 - Materiales transparentes para elementos como el vaso.
 
-Tambien se usan texturas repetidas mediante `RepeatWrapping`, especialmente en superficies donde se quiere dar sensacion de detalle.
+Los materiales basados en color aparecen en elementos como los muros del laberinto, el suelo, la puerta, el marco y algunos detalles de los pick-ups.
+
+Los materiales de los pick-ups se han asignado segun el tipo de objeto que representan:
+
+- Abanico: las varillas usan textura de madera y la tela usa textura decorativa, con un mapa de relieve para simular el tejido.
+- Farolillo/llave: la llave usa un material metalico de laton envejecido y el farolillo usa papel rojo con lunares blancos y relieve de pliegues.
+- Castañuelas: las conchas usan textura de madera con relieve, para reforzar la sensacion de pieza tallada.
+- Rebujito: el vaso usa material transparente de cristal, el liquido tiene color amarillento con relieve de burbujas, el limon tiene textura radial, la pajita usa franjas rojas y blancas, y los hielos usan material transparente.
+
+Tambien hay texturas en el canal de relieve. El abanico utiliza `bumpMap` para dar mas detalle a la tela y el rebujito usa un mapa de relieve generado por codigo para simular pequenas burbujas o irregularidades en el liquido.
+
+En algunos casos se usa `RepeatWrapping` para repetir la textura y evitar que quede estirada sobre la geometria.
+
+El vaso del rebujito usa un material fisico transparente (`MeshPhysicalMaterial`) para representar el cristal. Este material permite jugar con transparencia, rugosidad, transmision y grosor.
 
 ## 13. Luces
 
 La escena incluye diferentes tipos de luces:
 
-- Luz ambiental para iluminar la escena de forma general.
-- Luces direccionales para generar iluminacion principal.
-- Luces puntuales para reforzar zonas concretas.
+- `AmbientLight`: luz ambiental blanca que ilumina toda la escena de forma general.
+- `DirectionalLight`: luz principal calida que actua como iluminacion dominante y genera sombras.
+- `PointLight`: luz puntual azulada que aporta un color diferente a la escena.
+- `PointLight` dinamica: luz de acento que cambia de color e intensidad durante el juego.
 
 El objetivo es que el laberinto y los pick-ups sean visibles, y que algunos elementos tengan sombras y volumen.
 
-Pendiente de revisar antes de la entrega final:
+La luz direccional tiene activadas las sombras:
 
-- Confirmar que hay luces de diferentes colores.
-- Confirmar que al menos una luz cambia durante el juego, como pide el guion.
+```js
+this.sunLight.castShadow = true;
+```
+
+La luz cambiante se actualiza en cada frame. Su color se modifica con `setHSL()` y su intensidad varia con una funcion seno:
+
+```js
+this.dynamicLight.color.setHSL(hue, 0.85, 0.55);
+this.dynamicLight.intensity = 70 + Math.sin(this.lightTime * 1.4) * 18;
+```
+
+Con esto se cumple el requisito de tener luces de diferentes colores y al menos una luz que cambie durante el juego.
 
 ## 14. Camaras
 
@@ -235,6 +259,23 @@ El juego usa dos camaras:
 - Camara ortografica superior, usada para mostrar el minimapa.
 
 La camara principal representa la vision del jugador. La camara superior muestra el laberinto completo desde arriba y se renderiza en una zona separada de la pantalla.
+
+La camara superior se coloca sobre el laberinto, mirando hacia abajo:
+
+```js
+this.topCamera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 80);
+this.topCamera.position.set(0, 40, 0);
+this.topCamera.lookAt(0, 0, 0);
+```
+
+Cuando termina de cargarse el laberinto, se ajustan los limites de la camara ortografica para cubrir todo el mapa. Asi el minimapa siempre muestra el laberinto completo.
+
+El render se hace en dos pasos:
+
+1. Primero se renderiza la escena normal con la camara principal.
+2. Despues se limpia la profundidad y se renderiza una segunda vista con la camara superior en una esquina de la pantalla.
+
+Para colocar el minimapa se usan `setViewport()` y `setScissor()`. Esto permite dibujar la segunda camara solo dentro de una region rectangular de la ventana.
 
 Ademas, se ha anadido zoom con la rueda del raton modificando el FOV de la camara principal.
 
