@@ -7,7 +7,8 @@ class Castanuelas extends THREE.Object3D {
         super();
 
         this.tiempo = 0;
-        this.rotacionActiva = true;
+        this.rotacionActiva = false;
+        this.animacionActiva = true;
 
         this.userData.recogible = true;
         this.recogido = false;
@@ -32,6 +33,8 @@ class Castanuelas extends THREE.Object3D {
         // =====================================================
         // MODELO
         // =====================================================
+        // El perfil 2D se convierte en una media revolucion y despues se ahueca
+        // con CSG para obtener la forma concava de cada concha.
         const datosPerfil = this.obtenerDatosPerfil();
 
         const geometriaMitad = this.crearMediaRevolucionCerrada(datosPerfil);
@@ -44,7 +47,7 @@ class Castanuelas extends THREE.Object3D {
         this.grupoCastanuela = new THREE.Group();
         this.add(this.grupoCastanuela);
 
-        // Pivotes para abrir/cerrar
+        // Pivotes para abrir/cerrar: cada concha cuelga de su propio eje.
         this.pivoteA = new THREE.Object3D();
         this.pivoteB = new THREE.Object3D();
 
@@ -80,15 +83,20 @@ class Castanuelas extends THREE.Object3D {
         this.conchaA.rotation.set(0, 0, Math.PI);
         this.conchaB.rotation.set(0, Math.PI, Math.PI);
 
-        // Apertura inicial muy pequeña
-        this.pivoteA.rotation.x = 0.1;
-        this.pivoteB.rotation.x = -0.1;
+        // Apertura minima y maxima usadas en la animacion de repique.
+        this.aperturaBase = 0.08;
+        this.aperturaMax = 0.24;
+        this.pivoteA.rotation.x = this.aperturaBase;
+        this.pivoteB.rotation.x = -this.aperturaBase;
 
 
-        // Cordeles
-        this.cordeles = this.crearCordeles(bbox, yBisagra);
-        this.cordeles.position.set(0, -yBisagra + 0.05, 0);
-        this.grupoCastanuela.add(this.cordeles);
+        // Cordeles unidos a cada mitad para que acompañen su movimiento.
+        this.cordelA = this.crearCordelConcha(bbox, -0.055);
+        this.cordelB = this.crearCordelConcha(bbox, 0.055);
+        this.cordelA.position.y = -yBisagra + 0.05;
+        this.cordelB.position.y = -yBisagra + 0.05;
+        this.pivoteA.add(this.cordelA);
+        this.pivoteB.add(this.cordelB);
 
         this.rotation.x = THREE.MathUtils.degToRad(-8);
         this.scale.setScalar(1.0);
@@ -512,7 +520,7 @@ class Castanuelas extends THREE.Object3D {
         return this.suavizarGeometria(resultado.geometry);
     }
 
-    crearCordeles(bbox, yBisagra) {
+    crearCordelConcha(bbox, zCordel) {
         const grupo = new THREE.Group();
 
         const materialCordel = new THREE.MeshStandardMaterial({
@@ -521,44 +529,32 @@ class Castanuelas extends THREE.Object3D {
             metalness: 0.0
         });
 
-        // Separación lateral de los cordeles
-        const xLado = bbox.max.x * 0.45;
-
-        // Separación entre las dos mitades
-        const zA = -0.18;
-        const zB = 0.18;
-
-        // Cordel más grande y visible
-        const alturaArco = 0.16;
+        const xLado = bbox.max.x * 0.24;
+        const yAnclaje = 0.02;
+        const alturaArco = 0.14;
         const radioCordel = 0.012;
 
-        // Cordel izquierdo
-        const curvaIzq = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(-xLado, yBisagra - 0.015, zA),
-            new THREE.Vector3(-xLado * 0.8, yBisagra + alturaArco, 0),
-            new THREE.Vector3(-xLado, yBisagra - 0.015, zB)
+        const curva = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-xLado, yAnclaje, zCordel),
+            new THREE.Vector3(0, yAnclaje + alturaArco, zCordel),
+            new THREE.Vector3(xLado, yAnclaje, zCordel)
         ]);
 
-        const geoIzq = new THREE.TubeGeometry(curvaIzq, 48, radioCordel, 14, false);
-        const cordelIzq = new THREE.Mesh(geoIzq, materialCordel);
+        const geo = new THREE.TubeGeometry(curva, 48, radioCordel, 14, false);
+        const cordel = new THREE.Mesh(geo, materialCordel);
+        const geoNudo = new THREE.SphereGeometry(radioCordel * 1.7, 12, 8);
+        const nudoIzq = new THREE.Mesh(geoNudo, materialCordel);
+        const nudoDer = new THREE.Mesh(geoNudo.clone(), materialCordel);
 
-        // Cordel derecho
-        const curvaDer = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(xLado, yBisagra - 0.015, zA),
-            new THREE.Vector3(xLado * 0.8, yBisagra + alturaArco, 0),
-            new THREE.Vector3(xLado, yBisagra - 0.015, zB)
-        ]);
+        cordel.castShadow = true;
+        cordel.receiveShadow = true;
+        nudoIzq.castShadow = true;
+        nudoDer.castShadow = true;
 
-        const geoDer = new THREE.TubeGeometry(curvaDer, 48, radioCordel, 14, false);
-        const cordelDer = new THREE.Mesh(geoDer, materialCordel);
+        nudoIzq.position.set(-xLado, yAnclaje, zCordel);
+        nudoDer.position.set(xLado, yAnclaje, zCordel);
 
-        cordelIzq.castShadow = true;
-        cordelIzq.receiveShadow = true;
-        cordelDer.castShadow = true;
-        cordelDer.receiveShadow = true;
-
-        grupo.add(cordelIzq);
-        grupo.add(cordelDer);
+        grupo.add(cordel, nudoIzq, nudoDer);
 
         return grupo;
     }
@@ -631,10 +627,23 @@ class Castanuelas extends THREE.Object3D {
             this.rotation.y += delta * 0.45;
         }
 
+        if (this.animacionActiva) {
+            // Movimiento articulado: las dos mitades se abren y se cierran en
+            // sentidos opuestos usando sus pivotes.
+            const golpe = 0.5 + 0.5 * Math.sin(this.tiempo * 7.0);
+            const apertura = this.aperturaBase + golpe * (this.aperturaMax - this.aperturaBase);
+
+            this.pivoteA.rotation.x = apertura;
+            this.pivoteB.rotation.x = -apertura;
+        }
     }
 
     setRotacionActiva(valor) {
         this.rotacionActiva = valor;
+    }
+
+    setAnimacionActiva(valor) {
+        this.animacionActiva = valor;
     }
 
     setLuzActiva(valor) {

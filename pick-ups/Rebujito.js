@@ -12,6 +12,17 @@ class Rebujito extends THREE.Object3D {
 
         this.tiempo = 0;
         this.hielos = [];
+        // Parametros de animacion del liquido: se escala en Y manteniendo la base.
+        this.alturaLiquidoBase = 1.8;
+        this.alturaLiquidoMin = 0.55;
+        this.alturaLiquidoMax = 1.85;
+        this.baseLiquidoY = 0.02;
+        // Parametros aproximados de colision en planta para los hielos.
+        this.radioInteriorVaso = 0.57;
+        this.radioColisionHielo = 0.19;
+        this.distanciaMinimaHielos = this.radioColisionHielo * 2;
+        this.radioOrbitaHielos = 0.25;
+        this.amplitudMovimientoHielo = 0.025;
 
         this.userData.recogible = true;
         this.recogido = false;
@@ -130,9 +141,11 @@ class Rebujito extends THREE.Object3D {
     }
 
     crearLiquido() {
-        const geo = new THREE.CylinderGeometry(0.57, 0.57, 1.8, 32);
+        // El cilindro se crea con una altura base; durante la animacion solo se
+        // modifica su escala vertical.
+        const geo = new THREE.CylinderGeometry(0.57, 0.57, this.alturaLiquidoBase, 32);
         const liquido = new THREE.Mesh(geo, this.materialLiquido);
-        liquido.position.y = 0.92;
+        liquido.position.y = this.baseLiquidoY + this.alturaLiquidoBase / 2;
         liquido.renderOrder = 1;
         return liquido;
     }
@@ -181,7 +194,7 @@ class Rebujito extends THREE.Object3D {
     /**
      * Hielo: Cubos parametrizados con datos de fase para animación sinusoidal.
      */
-    crearHielo(x, y, z, rotX = 0, rotY = 0, rotZ = 0, escala = 1) {
+    crearHielo(x, y, z, rotX = 0, rotY = 0, rotZ = 0, escala = 1, indice = 0) {
         const geo = new THREE.BoxGeometry(0.32, 0.52, 0.32);
         const hielo = new THREE.Mesh(geo, this.materialHielo);
 
@@ -190,14 +203,22 @@ class Rebujito extends THREE.Object3D {
         hielo.scale.set(escala, escala, escala);
         hielo.renderOrder = 3;
 
-        // Almacenamiento de metadatos para la lógica de flotación en update().
-        hielo.userData = { baseX: x, baseY: y, baseZ: z, fase: Math.random() * Math.PI * 2, velRot: 0.4 + Math.random() * 0.6};
+        // Los hielos se reparten en cuadrantes distintos para que parezcan bloques
+        // solidos y no se atraviesen entre si.
+        hielo.userData = {
+            baseY: y,
+            anguloBase: indice * Math.PI * 0.5 + Math.PI * 0.25,
+            fase: Math.random() * Math.PI * 2,
+            velRot: 0.4 + Math.random() * 0.6
+        };
 
         return hielo;
     }
 
     crearHielos() {
         const grupo = new THREE.Group();
+        // La altura inicial varia para que no todos los hielos floten exactamente
+        // en el mismo plano.
         const config = [
             [-0.18, 1.25, 0.12, 0.4, 0.2, 0.1, 1.0],
             [0.16, 1.8, -0.10, 0.2, 0.7, 0.3, 0.9],
@@ -205,8 +226,8 @@ class Rebujito extends THREE.Object3D {
             [-0.10, 1.60, -0.18, 0.3, 0.5, 0.2, 0.85]
         ];
 
-        config.forEach(c => {
-            const h = this.crearHielo(...c);
+        config.forEach((c, indice) => {
+            const h = this.crearHielo(...c, indice);
             this.hielos.push(h);
             grupo.add(h);
         });
@@ -215,7 +236,8 @@ class Rebujito extends THREE.Object3D {
 
     construir() {
         this.add(this.crearVaso());
-        this.add(this.crearLiquido());
+        this.liquido = this.crearLiquido();
+        this.add(this.liquido);
         this.add(this.crearHielos());
         this.add(this.crearLimon());
         this.add(this.crearPajita());
@@ -232,18 +254,85 @@ class Rebujito extends THREE.Object3D {
             this.texturaBurbujas.offset.y -= delta * 0.15;
         }
 
+        const tNivel = 0.5 + 0.5 * Math.sin(this.tiempo * 0.8);
+        const alturaLiquido = THREE.MathUtils.lerp(this.alturaLiquidoMin, this.alturaLiquidoMax, tNivel);
+        const escalaNivelLiquido = alturaLiquido / this.alturaLiquidoBase;
+        // Al escalar y recolocar el cilindro, la base permanece en el fondo del vaso
+        // y el nivel superior sube/baja.
+        this.liquido.scale.y = alturaLiquido / this.alturaLiquidoBase;
+        this.liquido.position.y = this.baseLiquidoY + alturaLiquido / 2;
+
         // Flotabilidad: Movimiento browniano simulado mediante funciones trigonométricas.
         this.hielos.forEach(hielo => {
-            const { baseX, baseY, baseZ, fase, velRot } = hielo.userData;
+            const { baseY, anguloBase, fase, velRot } = hielo.userData;
+            const yLiquido = this.baseLiquidoY + baseY * escalaNivelLiquido;
+            const angulo = anguloBase + Math.sin(this.tiempo * 0.7 + fase) * 0.08;
+            const radio = this.radioOrbitaHielos + Math.sin(this.tiempo * 0.9 + fase) * this.amplitudMovimientoHielo;
 
-            hielo.position.y = baseY + Math.sin(this.tiempo * 1.4 + fase) * 0.03;
-            hielo.position.x = baseX + Math.cos(this.tiempo * 0.9 + fase) * 0.015;
-            hielo.position.z = baseZ + Math.sin(this.tiempo * 1.1 + fase) * 0.015;
+            // El hielo acompaña al nivel del liquido y conserva una pequeña flotacion.
+            hielo.position.y = yLiquido + Math.sin(this.tiempo * 1.4 + fase) * 0.03;
+            hielo.position.x = Math.cos(angulo) * radio;
+            hielo.position.z = Math.sin(angulo) * radio;
 
             // Rotación lenta diferencial.
             hielo.rotation.x += delta * velRot * 0.25;
             hielo.rotation.y += delta * velRot * 0.20;
         });
+
+        for (let i = 0; i < 4; i++) {
+            this.separarHielos();
+            this.mantenerHielosDentroDelVaso();
+        }
+    }
+
+    mantenerHielosDentroDelVaso() {
+        // Limita cada hielo a un circulo interior. Se resta el radio del hielo para
+        // que su volumen no atraviese la pared del vaso.
+        const radioMaximoCentro = this.radioInteriorVaso - this.radioColisionHielo;
+
+        this.hielos.forEach(hielo => {
+            const distanciaCentro = Math.sqrt(
+                hielo.position.x * hielo.position.x +
+                hielo.position.z * hielo.position.z
+            );
+
+            if (distanciaCentro <= radioMaximoCentro) {
+                return;
+            }
+
+            const direccionX = distanciaCentro > 0.0001 ? hielo.position.x / distanciaCentro : 1;
+            const direccionZ = distanciaCentro > 0.0001 ? hielo.position.z / distanciaCentro : 0;
+
+            hielo.position.x = direccionX * radioMaximoCentro;
+            hielo.position.z = direccionZ * radioMaximoCentro;
+        });
+    }
+
+    separarHielos() {
+        // Resolucion simple de colisiones en planta: cada par de hielos se separa
+        // hasta mantener una distancia minima entre centros.
+        for (let i = 0; i < this.hielos.length; i++) {
+            for (let j = i + 1; j < this.hielos.length; j++) {
+                const hieloA = this.hielos[i];
+                const hieloB = this.hielos[j];
+                const dx = hieloB.position.x - hieloA.position.x;
+                const dz = hieloB.position.z - hieloA.position.z;
+                const distancia = Math.sqrt(dx * dx + dz * dz);
+
+                if (distancia >= this.distanciaMinimaHielos) {
+                    continue;
+                }
+
+                const direccionX = distancia > 0.0001 ? dx / distancia : 1;
+                const direccionZ = distancia > 0.0001 ? dz / distancia : 0;
+                const correccion = (this.distanciaMinimaHielos - distancia) * 0.5;
+
+                hieloA.position.x -= direccionX * correccion;
+                hieloA.position.z -= direccionZ * correccion;
+                hieloB.position.x += direccionX * correccion;
+                hieloB.position.z += direccionZ * correccion;
+            }
+        }
     }
 }
 

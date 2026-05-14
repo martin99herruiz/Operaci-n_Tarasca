@@ -18,12 +18,20 @@ class MyScene extends THREE.Scene {
     this.renderer = this.createRenderer(myCanvas)
     this.clock = new THREE.Clock()
 
+    // Parametros principales del jugador y de las ayudas de prueba.
     this.playerHeight = 1.65
     this.playerRadius = 0.28
     this.interactionDistance = 3.0
+    this.minCameraFov = 35
+    this.maxCameraFov = 80
+    this.zoomWheelSensitivity = 0.035
     this.totalPickups = 4
     this.pickupsRecogidos = 0
     this.pickups = []
+    this.pickupMazeScale = 0.35
+    this.pickupVisualCenterHeight = 1.05
+    this.pickupTeleportIndex = 0
+    this.doorSurfaceOffset = 0.08
     this.animatedObjects = []
 
     this.keys = {
@@ -40,12 +48,13 @@ class MyScene extends THREE.Scene {
 
     this.guiControls = {
       velocidad: 2.2,
-      sensibilidad: 0.85,
       mostrarMiniMapa: true
     }
 
     this.background = new THREE.Color(0x2d353b)
 
+    // La escena se construye en varias funciones para separar camaras, luces,
+    // suelo, puerta, interfaz y eventos.
     this.createCameras()
     this.createLights()
     this.createGround()
@@ -58,12 +67,15 @@ class MyScene extends THREE.Scene {
     this.model = new Laberinto('./laberinto.txt', laberintoCargado)
     this.add(this.model)
 
+    // FileLoader carga el laberinto de forma asincrona; los objetos que dependen
+    // del mapa se colocan cuando termina la carga.
     laberintoCargado.done(() => {
       this.onLaberintoLoaded()
     })
   }
 
   createCameras() {
+    // Camara principal: vista en primera persona del jugador.
     this.camera = new THREE.PerspectiveCamera(
       65,
       window.innerWidth / window.innerHeight,
@@ -74,8 +86,9 @@ class MyScene extends THREE.Scene {
     this.add(this.camera)
 
     this.cameraControl = new PointerLockControls(this.camera, this.renderer.domElement)
-    this.cameraControl.pointerSpeed = this.guiControls.sensibilidad
+    this.cameraControl.pointerSpeed = 0.85
 
+    // Camara superior para el mini-mapa.
     this.topCamera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 80)
     this.topCamera.position.set(0, 40, 0)
     this.topCamera.up.set(0, 0, -1)
@@ -120,11 +133,20 @@ class MyScene extends THREE.Scene {
   }
 
   createDoor() {
+    // La puerta se monta como jerarquia: doorGroup posiciona el conjunto en el
+    // laberinto y doorPivot permite abrir solo la hoja y el pomo.
     this.doorGroup = new THREE.Group()
     this.doorPivot = new THREE.Group()
     this.doorOpenAmount = 0
     this.doorOpening = false
     this.doorTweenState = { p: 0 }
+    this.doorMetrics = {
+      openingWidth: 1.55,
+      openingHeight: 2.52,
+      frameThickness: 0.09,
+      frameDepth: 0.16,
+      panelDepth: 0.1
+    }
 
     const doorMaterial = new THREE.MeshStandardMaterial({
       color: 0x6b2d12,
@@ -139,14 +161,34 @@ class MyScene extends THREE.Scene {
       emissive: 0x000000
     })
 
-    const door = new THREE.Mesh(new THREE.BoxGeometry(0.86, 2.25, 0.1), doorMaterial)
-    door.position.set(0.43, 1.12, 0)
+    const {
+      openingWidth,
+      openingHeight,
+      frameThickness,
+      frameDepth,
+      panelDepth
+    } = this.doorMetrics
+    const doorWidth = openingWidth
+    const doorHeight = openingHeight
+
+    // Hoja de la puerta. Su origen queda en la bisagra izquierda para que rote
+    // de forma natural al abrirse.
+    const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, doorHeight, panelDepth), doorMaterial)
+    door.position.set(doorWidth / 2, doorHeight / 2, 0)
     door.castShadow = true
     door.receiveShadow = true
     this.doorPivot.add(door)
 
-    this.doorKnob = new THREE.Mesh(new THREE.SphereGeometry(0.075, 24, 16), this.knobMaterial)
-    this.doorKnob.position.set(0.72, 1.05, -0.075)
+    // Plano oscuro detras de la hoja, usado como hueco visual de salida.
+    this.doorVoid = new THREE.Mesh(
+      new THREE.BoxGeometry(openingWidth, openingHeight, 0.035),
+      new THREE.MeshBasicMaterial({ color: 0x000000 })
+    )
+    this.doorVoid.position.set(openingWidth / 2, openingHeight / 2, 0.07)
+    this.doorVoid.renderOrder = -1
+
+    this.doorKnob = new THREE.Mesh(new THREE.SphereGeometry(0.065, 24, 16), this.knobMaterial)
+    this.doorKnob.position.set(doorWidth * 0.82, doorHeight * 0.47, -panelDepth * 0.75)
     this.doorKnob.castShadow = true
     this.doorKnob.userData.interactable = 'door'
     this.doorPivot.add(this.doorKnob)
@@ -155,19 +197,23 @@ class MyScene extends THREE.Scene {
       color: 0x2b1a12,
       roughness: 0.75
     })
-    const leftFrame = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.45, 0.16), frameMaterial)
+    // Marco construido con tres prismas: dos laterales y uno superior.
+    const frameHeight = openingHeight + frameThickness
+    const frameWidth = openingWidth + frameThickness * 2
+    const leftFrame = new THREE.Mesh(new THREE.BoxGeometry(frameThickness, frameHeight, frameDepth), frameMaterial)
     const rightFrame = leftFrame.clone()
-    const topFrame = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.1, 0.16), frameMaterial)
-    leftFrame.position.set(-0.05, 1.22, 0)
-    rightFrame.position.set(0.95, 1.22, 0)
-    topFrame.position.set(0.45, 2.43, 0)
-    this.doorGroup.add(leftFrame, rightFrame, topFrame, this.doorPivot)
+    const topFrame = new THREE.Mesh(new THREE.BoxGeometry(frameWidth, frameThickness, frameDepth), frameMaterial)
+    leftFrame.position.set(-frameThickness / 2, frameHeight / 2, 0)
+    rightFrame.position.set(openingWidth + frameThickness / 2, frameHeight / 2, 0)
+    topFrame.position.set(openingWidth / 2, openingHeight + frameThickness / 2, 0)
+    this.doorGroup.add(this.doorVoid, leftFrame, rightFrame, topFrame, this.doorPivot)
 
     this.doorGroup.visible = false
     this.add(this.doorGroup)
   }
 
   createPlayerMarker() {
+    // Indicador usado solo en la camara superior para saber donde esta el jugador.
     const markerMaterial = new THREE.MeshBasicMaterial({
       color: 0xfff16a,
       depthTest: false
@@ -186,12 +232,6 @@ class MyScene extends THREE.Scene {
     gui.add(this.guiControls, 'velocidad', 0.6, 5.0, 0.1)
       .name('Velocidad')
 
-    gui.add(this.guiControls, 'sensibilidad', 0.2, 2.0, 0.05)
-      .name('Sensibilidad')
-      .onChange((valor) => {
-        this.cameraControl.pointerSpeed = valor
-      })
-
     gui.add(this.guiControls, 'mostrarMiniMapa')
       .name('Mini-mapa')
 
@@ -200,8 +240,21 @@ class MyScene extends THREE.Scene {
 
   bindEvents() {
     this.renderer.domElement.addEventListener('click', (event) => this.onMouseClick(event))
+    this.renderer.domElement.addEventListener('wheel', (event) => this.onMouseWheel(event), { passive: false })
     window.addEventListener('keydown', (event) => this.onKey(event, true))
     window.addEventListener('keyup', (event) => this.onKey(event, false))
+  }
+
+  onMouseWheel(event) {
+    event.preventDefault()
+
+    // Zoom mediante FOV: menor FOV acerca la camara, mayor FOV aleja.
+    this.camera.fov = THREE.MathUtils.clamp(
+      this.camera.fov + event.deltaY * this.zoomWheelSensitivity,
+      this.minCameraFov,
+      this.maxCameraFov
+    )
+    this.camera.updateProjectionMatrix()
   }
 
   onLaberintoLoaded() {
@@ -210,7 +263,7 @@ class MyScene extends THREE.Scene {
     )
 
     this.placePlayerAtCell(1, 1)
-    this.placeDoorAtCell(25, 25)
+    this.placeDoorAtWall(25, 27, 'west')
 
     // 1. Crear el Abanico (Articulado y animado para la Defensa 3)
     const abanico = new Abanico()
@@ -238,18 +291,44 @@ class MyScene extends THREE.Scene {
     this.camera.lookAt(this.tmpPosition.x + 1, this.playerHeight, this.tmpPosition.z)
   }
 
-  placeDoorAtCell(fila, columna) {
+  placeDoorAtWall(fila, columna, lado = 'south') {
     this.model.getMundoFromCelda(fila, columna, this.tmpDoorPosition)
 
+    // La puerta se alinea con una cara del bloque indicado.
     const halfBlock = this.model.anchoBloque * 0.5
-    this.doorGroup.position.set(this.tmpDoorPosition.x - 0.45, 0, this.tmpDoorPosition.z + halfBlock)
+    const halfDoorOpening = this.doorMetrics.openingWidth * 0.5
+
+    if (lado === 'west') {
+      this.doorGroup.rotation.y = Math.PI / 2
+      this.doorGroup.position.set(
+        this.tmpDoorPosition.x - halfBlock - this.doorSurfaceOffset,
+        0,
+        this.tmpDoorPosition.z + halfDoorOpening
+      )
+    } else {
+      this.doorGroup.rotation.y = 0
+      this.doorGroup.position.set(
+        this.tmpDoorPosition.x - halfDoorOpening,
+        0,
+        this.tmpDoorPosition.z + halfBlock
+      )
+    }
+
     this.doorGroup.visible = true
   }
 
   posicionarPickup(objeto, fila, columna) {
     this.model.getMundoFromCelda(fila, columna, this.tmpPosition)
-    
-    objeto.position.set(this.tmpPosition.x, 0.5, this.tmpPosition.z)
+
+    // Todos los pick-ups se escalan y se alinean por centro visual para que
+    // aparezcan a una altura coherente aunque sus modelos tengan origen distinto.
+    objeto.scale.multiplyScalar(this.pickupMazeScale)
+    objeto.position.set(this.tmpPosition.x, 0, this.tmpPosition.z)
+    objeto.updateMatrixWorld(true)
+
+    const caja = new THREE.Box3().setFromObject(objeto)
+    caja.getCenter(this.tmpPosition)
+    objeto.position.y += this.pickupVisualCenterHeight - this.tmpPosition.y
     
     this.add(objeto)                     // Para que se vean
     this.pickups.push(objeto)            // Para poder recogerlos con el Raycaster
@@ -321,11 +400,95 @@ class MyScene extends THREE.Scene {
         this.keys.backward = pressed
         event.preventDefault()
         break
+      case 'KeyF':
+        if (pressed && !event.repeat) {
+          this.teleportPlayerToDoor()
+        }
+        event.preventDefault()
+        break
+      case 'KeyP':
+        if (pressed && !event.repeat) {
+          this.teleportPlayerToNextPickup()
+        }
+        event.preventDefault()
+        break
     }
+  }
+
+  teleportPlayerToDoor() {
+    if (!this.doorGroup.visible) {
+      return
+    }
+
+    // Herramienta de prueba: coloca al jugador delante de la puerta mirando al centro.
+    const doorFront = new THREE.Vector3(0, 0, -1)
+      .applyQuaternion(this.doorGroup.quaternion)
+      .normalize()
+    const doorCenter = new THREE.Vector3()
+    this.doorVoid.getWorldPosition(doorCenter)
+
+    this.camera.position.set(
+      doorCenter.x + doorFront.x * 1.35,
+      this.playerHeight,
+      doorCenter.z + doorFront.z * 1.35
+    )
+    this.camera.lookAt(doorCenter.x, this.playerHeight, doorCenter.z)
+    this.setHudMessage('Jugador frente a la puerta')
+  }
+
+  teleportPlayerToNextPickup() {
+    if (this.pickups.length === 0) {
+      return
+    }
+
+    // Herramienta de prueba: recorre los pick-ups pendientes para comprobar la recogida.
+    const pendingPickups = this.pickups.filter((pickup) => !(pickup.recogido || pickup.collected))
+    const targets = pendingPickups.length > 0 ? pendingPickups : this.pickups
+    const targetIndex = this.pickupTeleportIndex % targets.length
+    const target = targets[targetIndex]
+    this.pickupTeleportIndex = (targetIndex + 1) % targets.length
+
+    target.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(target)
+    const targetCenter = new THREE.Vector3()
+    box.getCenter(targetCenter)
+
+    const offsets = [
+      new THREE.Vector3(0, 0, 0.65),
+      new THREE.Vector3(0.65, 0, 0),
+      new THREE.Vector3(0, 0, -0.65),
+      new THREE.Vector3(-0.65, 0, 0)
+    ]
+    const playerPosition = new THREE.Vector3(targetCenter.x, this.playerHeight, targetCenter.z)
+    let foundPosition = false
+
+    // Se prueban varias posiciones alrededor del pick-up y se escoge la primera
+    // que no caiga dentro de un muro.
+    for (const offset of offsets) {
+      playerPosition.set(
+        targetCenter.x + offset.x,
+        this.playerHeight,
+        targetCenter.z + offset.z
+      )
+
+      if (!this.model || this.model.puedeMoverseA(playerPosition, this.playerRadius)) {
+        foundPosition = true
+        break
+      }
+    }
+
+    if (!foundPosition) {
+      playerPosition.set(targetCenter.x, this.playerHeight, targetCenter.z)
+    }
+
+    this.camera.position.copy(playerPosition)
+    this.camera.lookAt(targetCenter.x, this.playerHeight, targetCenter.z)
+    this.setHudMessage(`Pick-up ${targetIndex + 1}/${targets.length}`)
   }
 
   onMouseClick() {
     if (!this.cameraControl.isLocked) {
+      // Primer click: bloquea el puntero para activar la camara en primera persona.
       this.cameraControl.lock()
       return
     }
@@ -342,6 +505,7 @@ class MyScene extends THREE.Scene {
       return
     }
 
+    // Para abrir la puerta hay que apuntar al pomo, estar cerca y haber recogido todo.
     this.raycaster.setFromCamera(this.centerPointer, this.camera)
     const hits = this.raycaster.intersectObject(this.doorKnob, true)
 
@@ -372,6 +536,7 @@ class MyScene extends THREE.Scene {
     }
 
     this.doorTweenState.p = this.doorOpenAmount
+    // Tween de apertura: interpola una variable p de 0 a 1 y la convierte en rotacion.
     this.doorTween = new TWEEN.Tween(this.doorTweenState)
       .to({ p: 1 }, 850)
       .easing(TWEEN.Easing.Quadratic.Out)
@@ -430,6 +595,8 @@ class MyScene extends THREE.Scene {
       return
     }
 
+    // La direccion de avance sale de la camara, pero se anula Y para moverse solo
+    // sobre el plano del suelo.
     this.tmpMovement.set(0, 0, 0)
     this.cameraControl.getDirection(this.tmpDirection)
     this.tmpDirection.y = 0
@@ -448,6 +615,8 @@ class MyScene extends THREE.Scene {
     }
 
     this.tmpMovement.normalize().multiplyScalar(this.guiControls.velocidad * delta)
+    // Movimiento por ejes separados: permite deslizarse por una pared si el otro eje
+    // sigue siendo valido.
     this.tryMoveAxis(this.tmpMovement.x, 0)
     this.tryMoveAxis(0, this.tmpMovement.z)
   }
@@ -457,6 +626,7 @@ class MyScene extends THREE.Scene {
     candidate.x += deltaX
     candidate.z += deltaZ
 
+    // La camara solo se mueve si el radio del jugador no invade ninguna celda muro.
     if (this.model.puedeMoverseA(candidate, this.playerRadius)) {
       this.camera.position.copy(candidate)
     }
@@ -542,6 +712,7 @@ class MyScene extends THREE.Scene {
     const width = window.innerWidth
     const height = window.innerHeight
 
+    // Primero se renderiza la vista principal ocupando toda la ventana.
     this.renderer.setScissorTest(false)
     this.renderer.setViewport(0, 0, width, height)
     this.renderer.setClearColor(0x2d353b, 1)
@@ -549,6 +720,7 @@ class MyScene extends THREE.Scene {
     this.renderer.render(this, this.camera)
 
     if (this.guiControls.mostrarMiniMapa) {
+      // Segundo render en una ventana pequena: vista superior del laberinto.
       const size = Math.min(280, Math.floor(width * 0.28), Math.floor(height * 0.34))
       const margin = 16
       const left = width - size - margin
@@ -569,6 +741,7 @@ class MyScene extends THREE.Scene {
   update() {
     const delta = this.clock.getDelta()
 
+    // Bucle principal de juego: entrada, animaciones, HUD y render.
     this.updatePlayer(delta)
     this.updateDoor(delta)
     this.updateAnimatedObjects(delta)
