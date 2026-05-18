@@ -44,7 +44,9 @@ class MyScene extends THREE.Scene {
     this.tmpMovement = new THREE.Vector3()
     this.tmpPosition = new THREE.Vector3()
     this.tmpDoorPosition = new THREE.Vector3()
+    this.tmpPickupPosition = new THREE.Vector3()
     this.centerPointer = new THREE.Vector2(0, 0)
+    this.mousePointer = new THREE.Vector2(0, 0)
     this.raycaster = new THREE.Raycaster()
 
     this.guiControls = {
@@ -88,6 +90,8 @@ class MyScene extends THREE.Scene {
 
     this.cameraControl = new PointerLockControls(this.camera, this.renderer.domElement)
     this.cameraControl.pointerSpeed = 0.85
+    this.cameraControl.minPolarAngle = THREE.MathUtils.degToRad(18)
+    this.cameraControl.maxPolarAngle = THREE.MathUtils.degToRad(162)
 
     // Camara superior para el mini-mapa.
     this.topCamera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 80)
@@ -297,6 +301,7 @@ class MyScene extends THREE.Scene {
 
   bindEvents() {
     this.renderer.domElement.addEventListener('click', (event) => this.onMouseClick(event))
+    this.renderer.domElement.addEventListener('contextmenu', (event) => this.onMouseRightClick(event))
     this.renderer.domElement.addEventListener('wheel', (event) => this.onMouseWheel(event), { passive: false })
     window.addEventListener('keydown', (event) => this.onKey(event, true))
     window.addEventListener('keyup', (event) => this.onKey(event, false))
@@ -387,6 +392,13 @@ class MyScene extends THREE.Scene {
     const caja = new THREE.Box3().setFromObject(objeto)
     caja.getCenter(this.tmpPosition)
     objeto.position.y += this.pickupVisualCenterHeight - this.tmpPosition.y
+    objeto.updateMatrixWorld(true)
+
+    const cajaFinal = new THREE.Box3().setFromObject(objeto)
+    const tamanoPickup = new THREE.Vector3()
+    cajaFinal.getSize(tamanoPickup)
+    objeto.userData.obstaculo = true
+    objeto.userData.radioObstaculo = Math.max(tamanoPickup.x, tamanoPickup.z) * 0.5
     
     this.add(objeto)                     // Para que se vean
     this.pickups.push(objeto)            // Para poder recogerlos con el Raycaster
@@ -395,9 +407,18 @@ class MyScene extends THREE.Scene {
     objeto.userData.recogible = true
   }
 
-  tryPickUp() {
-    // Apuntamos el raycaster desde el centro de la pantalla
-    this.raycaster.setFromCamera(this.centerPointer, this.camera);
+  updateMousePointer(event) {
+    const rect = this.renderer.domElement.getBoundingClientRect()
+
+    this.mousePointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+    this.mousePointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+    return this.mousePointer
+  }
+
+  tryPickUp(pointer = this.centerPointer) {
+    // Apuntamos el raycaster desde el centro de la pantalla o desde el cursor.
+    this.raycaster.setFromCamera(pointer, this.camera);
 
     // Buscamos si el rayo choca con algo en nuestra lista de pickups
     const intersecciones = this.raycaster.intersectObjects(this.pickups, true);
@@ -415,8 +436,11 @@ class MyScene extends THREE.Scene {
         // REQUISITOS: Que sea recogible, no esté recogido ya y esté CERCA (interactionDistance)
         if (pickupRaiz.userData.recogible && !pickupRaiz.recogido && distancia < this.interactionDistance) {
             this.recogerObjeto(pickupRaiz);
+            return true;
         }
     }
+
+    return false;
   }
 
   recogerObjeto(objeto) {
@@ -544,9 +568,16 @@ class MyScene extends THREE.Scene {
     this.setHudMessage(`Pick-up ${targetIndex + 1}/${targets.length}`)
   }
 
-  onMouseClick() {
+  onMouseClick(event) {
     if (!this.cameraControl.isLocked) {
-      // Primer click: bloquea el puntero para activar la camara en primera persona.
+      // Con el cursor libre se puede recoger un pick-up sin que la vista se mueva.
+      const pointer = this.updateMousePointer(event)
+
+      if (this.tryInteractWithDoor(pointer) || this.tryPickUp(pointer)) {
+        return
+      }
+
+      // Si no se ha pulsado sobre nada interactivo, el click activa la vista en primera persona.
       this.cameraControl.lock()
       return
     }
@@ -558,26 +589,36 @@ class MyScene extends THREE.Scene {
     this.tryPickUp();
   }
 
-  tryInteractWithDoor() {
+  onMouseRightClick(event) {
+    event.preventDefault()
+
+    if (this.cameraControl.isLocked) {
+      this.cameraControl.unlock()
+      this.setHudMessage('Cursor libre: click sobre un pick-up')
+    }
+  }
+
+  tryInteractWithDoor(pointer = this.centerPointer) {
     if (!this.doorGroup.visible || this.doorOpening) {
-      return
+      return false
     }
 
     // Para abrir la puerta hay que apuntar al pomo, estar cerca y haber recogido todo.
-    this.raycaster.setFromCamera(this.centerPointer, this.camera)
+    this.raycaster.setFromCamera(pointer, this.camera)
     const hits = this.raycaster.intersectObject(this.doorKnob, true)
 
     if (hits.length === 0 || hits[0].distance > this.interactionDistance) {
-      return
+      return false
     }
 
     if (!this.todosPickupsRecogidos()) {
       this.setHudMessage(`Puerta cerrada: faltan ${this.pickupsPendientes()} pick-ups`)
       this.flashKnob(0x661111)
-      return
+      return true
     }
 
     this.openDoor()
+    return true
   }
 
   openDoor() {
@@ -728,10 +769,33 @@ class MyScene extends THREE.Scene {
     candidate.x += deltaX
     candidate.z += deltaZ
 
-    // La camara solo se mueve si el radio del jugador no invade ninguna celda muro.
-    if (this.model.puedeMoverseA(candidate, this.playerRadius)) {
+    // La camara solo se mueve si el jugador no invade muros ni pick-ups pendientes.
+    if (this.canPlayerMoveTo(candidate)) {
       this.camera.position.copy(candidate)
     }
+  }
+
+  canPlayerMoveTo(position) {
+    return (
+      this.model.puedeMoverseA(position, this.playerRadius) &&
+      !this.intersectsPickupObstacle(position)
+    )
+  }
+
+  intersectsPickupObstacle(position) {
+    return this.pickups.some((pickup) => {
+      if (!pickup.userData.obstaculo || pickup.recogido || pickup.collected || !pickup.visible) {
+        return false
+      }
+
+      pickup.getWorldPosition(this.tmpPickupPosition)
+
+      const minDistance = this.playerRadius + pickup.userData.radioObstaculo
+      const dx = position.x - this.tmpPickupPosition.x
+      const dz = position.z - this.tmpPickupPosition.z
+
+      return dx * dx + dz * dz < minDistance * minDistance
+    })
   }
 
   updateDoor() {

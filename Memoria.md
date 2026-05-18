@@ -81,6 +81,8 @@ La camara principal usa `PointerLockControls`, de forma que el raton controla la
 - `W` o flecha arriba: avanzar.
 - `S` o flecha abajo: retroceder.
 
+Para evitar que la vista pueda girar demasiado en vertical, se limitan los angulos de inclinacion de la camara mediante `minPolarAngle` y `maxPolarAngle`. Asi el jugador no puede sobrepasar el limite superior o inferior de la mirada.
+
 La direccion de avance se obtiene a partir de la direccion de la camara. Para evitar desplazamientos verticales, se elimina la componente `Y` y se normaliza el vector resultante.
 
 El movimiento se aplica separando el eje `X` y el eje `Z`. Esto permite que, si el jugador choca contra una pared en un eje, pueda seguir desplazandose por el otro, dando una sensacion mas natural al moverse por pasillos estrechos.
@@ -103,17 +105,23 @@ Resumen del algoritmo:
 
 Con esto se simula que el jugador tiene volumen y no puede atravesar las paredes.
 
+Ademas, los pick-ups pendientes de recoger tambien se tratan como obstaculos. Al colocarlos en el laberinto se calcula su caja envolvente (`Box3`) y se obtiene un radio aproximado de colision. Durante el movimiento se comprueba que la posicion candidata no invada ningun pick-up visible y no recogido.
+
+Cuando un pick-up se recoge, se marca como recogido y se oculta, por lo que deja de bloquear el paso.
+
 ## 8. Recogida de pick-ups
 
 La recogida de pick-ups se realiza con un `Raycaster`.
 
-Cuando el jugador hace click:
+Cuando el jugador hace click con la camara bloqueada:
 
 1. Se lanza un rayo desde el centro de la camara.
 2. Se comprueba si el rayo intersecta algun pick-up.
 3. Se busca el objeto padre marcado como recogible mediante `userData.recogible`.
 4. Se comprueba que la distancia entre jugador y pick-up sea suficientemente pequena.
 5. Si se cumplen las condiciones, el objeto se marca como recogido y se oculta.
+
+Tambien se ha anadido un modo de cursor libre. Con click derecho se libera el raton; en ese modo se puede hacer click directamente sobre un pick-up sin que la vista se mueva. Para ello, el raycaster usa las coordenadas reales del cursor convertidas a coordenadas normalizadas de pantalla.
 
 La recogida se registra con:
 
@@ -280,12 +288,15 @@ Para colocar el minimapa se usan `setViewport()` y `setScissor()`. Esto permite 
 
 Ademas, se ha anadido zoom con la rueda del raton modificando el FOV de la camara principal.
 
+La camara principal tambien limita la inclinacion vertical para que la mirada no pueda sobrepasar el angulo permitido.
+
 ## 15. Ayudas de prueba y mejoras
 
 Durante el desarrollo se han anadido algunas ayudas para facilitar las pruebas:
 
 - `F`: coloca al jugador frente a la puerta.
 - `P`: lleva al jugador de un pick-up al siguiente.
+- Click derecho: libera el cursor para poder seleccionar pick-ups sin mover la vista.
 - Rueda del raton: aumenta o reduce el zoom.
 - GUI: permite modificar parametros como la velocidad del jugador o mostrar/ocultar el minimapa.
 
