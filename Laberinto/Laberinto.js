@@ -22,12 +22,11 @@ class Laberinto extends THREE.Object3D {
       this.anchoBloque
     )
     this.bloqueGeo.translate(0, this.altoBloque / 2, 0)
-
-    this.bloqueMat = new THREE.MeshStandardMaterial({
-      color: 0x7b4a2a,
-      roughness: 0.8,
-      metalness: 0.05
-    })
+    this.materialesCaseta = [
+      this.crearMaterialesCaseta(0),
+      this.crearMaterialesCaseta(1),
+      this.crearMaterialesCaseta(2)
+    ]
 
     const loader = new THREE.FileLoader()
     loader.load(archivo, (file) => {
@@ -37,6 +36,47 @@ class Laberinto extends THREE.Object3D {
         sincronizacion.resolve()
       }
     })
+  }
+
+  crearMaterialesCaseta(indiceCaseta = 0) {
+    const casetas = [
+      { archivo: '../imgs/caseta_1.png', ancho: 444, alto: 768 },
+      { archivo: '../imgs/caseta_2.png', ancho: 449, alto: 768 },
+      { archivo: '../imgs/caseta_3.png', ancho: 483, alto: 768 }
+    ]
+    const caseta = casetas[indiceCaseta % casetas.length]
+    const texturaCaseta = new THREE.TextureLoader().load(caseta.archivo)
+
+    texturaCaseta.wrapS = THREE.ClampToEdgeWrapping
+    texturaCaseta.wrapT = THREE.ClampToEdgeWrapping
+    texturaCaseta.repeat.set(1, 1)
+    texturaCaseta.offset.set(0, 0)
+    texturaCaseta.colorSpace = THREE.SRGBColorSpace
+
+    const materialLateral = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: texturaCaseta,
+      emissive: 0xffffff,
+      emissiveMap: texturaCaseta,
+      emissiveIntensity: 0.16,
+      roughness: 0.88,
+      metalness: 0.0
+    })
+
+    const materialTecho = new THREE.MeshStandardMaterial({
+      color: 0xe9d6aa,
+      roughness: 0.95,
+      metalness: 0.0
+    })
+
+    return [
+      materialLateral,
+      materialLateral,
+      materialTecho,
+      materialTecho,
+      materialLateral,
+      materialLateral
+    ]
   }
 
   cargarDesdeTexto(texto) {
@@ -61,7 +101,8 @@ class Laberinto extends THREE.Object3D {
     for (let fila = 0; fila < this.zNumBloques; fila++) {
       for (let columna = 0; columna < this.xNumBloques; columna++) {
         if (this.matriz[fila][columna] === Laberinto.WALL) {
-          const bloque = new THREE.Mesh(this.bloqueGeo, this.bloqueMat)
+          const indiceCaseta = Math.abs(fila * 7 + columna * 3) % this.materialesCaseta.length
+          const bloque = new THREE.Mesh(this.bloqueGeo, this.materialesCaseta[indiceCaseta])
           bloque.position.set(
             columna * this.anchoBloque,
             0,

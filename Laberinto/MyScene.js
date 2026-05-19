@@ -8,7 +8,7 @@ import { Farolillo } from '../pick-ups/Farolillo.js'
 import { Castanuelas } from '../pick-ups/Castanuelas.js'
 import { Rebujito } from '../pick-ups/Rebujito.js'
 
-import { Laberinto } from './Laberinto.js'
+import { Laberinto } from './Laberinto.js?v=feria-casetas-18'
 
 class MyScene extends THREE.Scene {
 
@@ -33,7 +33,18 @@ class MyScene extends THREE.Scene {
     this.pickupTeleportIndex = 0
     this.doorSurfaceOffset = 0.08
     this.animatedObjects = []
+    this.garlandBulbs = []
+    this.garlandPointLights = []
     this.lightTime = 0
+    this.skyProgress = 0
+    this.targetSkyProgress = 0
+    this.skyTextureNeedsRefresh = true
+    this.skyStars = Array.from({ length: 95 }, () => ({
+      x: Math.random(),
+      y: Math.random() * 0.62,
+      radius: 0.7 + Math.random() * 1.4,
+      alpha: 0.35 + Math.random() * 0.65
+    }))
 
     this.keys = {
       forward: false,
@@ -54,11 +65,13 @@ class MyScene extends THREE.Scene {
       mostrarMiniMapa: true
     }
 
-    this.background = new THREE.Color(0x2d353b)
+    this.background = new THREE.Color(0x77b8df)
+    this.fog = new THREE.Fog(0xf3c36f, 13, 36)
 
     // La escena se construye en varias funciones para separar camaras, luces,
     // suelo, puerta, interfaz y eventos.
     this.createCameras()
+    this.createSky()
     this.createLights()
     this.createGround()
     this.createDoor()
@@ -102,10 +115,30 @@ class MyScene extends THREE.Scene {
     this.add(this.topCamera)
   }
 
-  createLights() {
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.42)
-    this.add(this.ambientLight)
+  createSky() {
+    this.skyCanvas = document.createElement('canvas')
+    this.skyCanvas.width = 512
+    this.skyCanvas.height = 256
+    this.skyContext = this.skyCanvas.getContext('2d')
 
+    this.skyTexture = new THREE.CanvasTexture(this.skyCanvas)
+    this.skyTexture.colorSpace = THREE.SRGBColorSpace
+
+    this.skyMaterial = new THREE.MeshBasicMaterial({
+      map: this.skyTexture,
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false
+    })
+
+    this.skyDome = new THREE.Mesh(new THREE.SphereGeometry(58, 48, 24), this.skyMaterial)
+    this.skyDome.renderOrder = -10
+    this.add(this.skyDome)
+
+    this.drawSkyTexture(0)
+  }
+
+  createLights() {
     this.sunLight = new THREE.DirectionalLight(0xfff4df, 1.35)
     this.sunLight.position.set(6, 14, 5)
     this.sunLight.castShadow = true
@@ -117,22 +150,50 @@ class MyScene extends THREE.Scene {
     this.sunLight.shadow.camera.top = 12
     this.sunLight.shadow.camera.bottom = -12
     this.add(this.sunLight)
+  }
 
-    this.fillLight = new THREE.PointLight(0x5fb7ff, 120)
-    this.fillLight.position.set(-4, 2.5, -4)
-    this.add(this.fillLight)
+  createAlberoTexture() {
+    const size = 256
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
 
-    // Luz cambiante exigida en la Defensa 4: aporta un acento de color que
-    // varia suavemente durante el juego.
-    this.dynamicLight = new THREE.PointLight(0xff6a3d, 85, 9, 1.6)
-    this.dynamicLight.position.set(4.5, 2.4, 3.5)
-    this.add(this.dynamicLight)
+    const context = canvas.getContext('2d')
+    context.fillStyle = '#c68f3b'
+    context.fillRect(0, 0, size, size)
+
+    const imageData = context.getImageData(0, 0, size, size)
+    const data = imageData.data
+
+    for (let i = 0; i < data.length; i += 4) {
+      const noise = Math.random() * 38 - 19
+      const speckle = Math.random() > 0.965 ? Math.random() * 38 : 0
+
+      data[i] = THREE.MathUtils.clamp(data[i] + noise + speckle, 0, 255)
+      data[i + 1] = THREE.MathUtils.clamp(data[i + 1] + noise * 0.75 + speckle * 0.8, 0, 255)
+      data[i + 2] = THREE.MathUtils.clamp(data[i + 2] + noise * 0.35, 0, 255)
+    }
+
+    context.putImageData(imageData, 0, 0)
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(12, 12)
+    texture.colorSpace = THREE.SRGBColorSpace
+
+    return texture
   }
 
   createGround() {
+    const alberoTexture = this.createAlberoTexture()
+
     const materialGround = new THREE.MeshStandardMaterial({
-      color: 0x476340,
-      roughness: 0.85,
+      color: 0xd19a44,
+      map: alberoTexture,
+      emissive: 0x6b3f12,
+      emissiveIntensity: 0.08,
+      roughness: 0.96,
       metalness: 0.0
     })
 
@@ -344,8 +405,155 @@ class MyScene extends THREE.Scene {
     const rebujito = new Rebujito()
     this.posicionarPickup(rebujito, 23, 21)
 
+    this.createGarlands()
     this.configureTopCamera()
     this.updateHud()
+  }
+
+  createGarlands() {
+    if (this.garlandGroup) {
+      this.remove(this.garlandGroup)
+    }
+
+    this.garlandGroup = new THREE.Group()
+    this.garlandBulbs = []
+    this.garlandPointLights = []
+
+    this.garlandCableMaterial = new THREE.LineBasicMaterial({ color: 0x1c1510 })
+    this.garlandBulbGeometry = new THREE.SphereGeometry(0.055, 12, 8)
+    this.garlandBulbMaterials = [
+      this.createGarlandBulbMaterial(0xffd36a),
+      this.createGarlandBulbMaterial(0xff6f5f),
+      this.createGarlandBulbMaterial(0x67d8ff),
+      this.createGarlandBulbMaterial(0x82ff9a)
+    ]
+
+    const horizontalRuns = this.findFreeRuns('horizontal', 3)
+    const verticalRuns = this.findFreeRuns('vertical', 3)
+
+    horizontalRuns.forEach((run) => this.addGarlandRun(run, 'horizontal'))
+    verticalRuns.forEach((run) => this.addGarlandRun(run, 'vertical'))
+
+    this.add(this.garlandGroup)
+  }
+
+  createGarlandBulbMaterial(color) {
+    return new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.2,
+      roughness: 0.25
+    })
+  }
+
+  findFreeRuns(direction, minLength) {
+    const runs = []
+
+    if (direction === 'horizontal') {
+      for (let fila = 1; fila < this.model.zNumBloques - 1; fila++) {
+        let start = null
+
+        for (let columna = 1; columna < this.model.xNumBloques - 1; columna++) {
+          const isFree = !this.model.esMuro(fila, columna)
+
+          if (isFree && start === null) {
+            start = columna
+          }
+
+          if ((!isFree || columna === this.model.xNumBloques - 2) && start !== null) {
+            const end = isFree && columna === this.model.xNumBloques - 2 ? columna : columna - 1
+
+            if (end - start + 1 >= minLength) {
+              runs.push({ fila, start, end })
+            }
+
+            start = null
+          }
+        }
+      }
+    } else {
+      for (let columna = 1; columna < this.model.xNumBloques - 1; columna++) {
+        let start = null
+
+        for (let fila = 1; fila < this.model.zNumBloques - 1; fila++) {
+          const isFree = !this.model.esMuro(fila, columna)
+
+          if (isFree && start === null) {
+            start = fila
+          }
+
+          if ((!isFree || fila === this.model.zNumBloques - 2) && start !== null) {
+            const end = isFree && fila === this.model.zNumBloques - 2 ? fila : fila - 1
+
+            if (end - start + 1 >= minLength) {
+              runs.push({ columna, start, end })
+            }
+
+            start = null
+          }
+        }
+      }
+    }
+
+    return runs
+  }
+
+  addGarlandRun(run, direction) {
+    const startCell = new THREE.Vector3()
+    const endCell = new THREE.Vector3()
+    const y = 2.34
+
+    if (direction === 'horizontal') {
+      this.model.getMundoFromCelda(run.fila, run.start, startCell)
+      this.model.getMundoFromCelda(run.fila, run.end, endCell)
+    } else {
+      this.model.getMundoFromCelda(run.start, run.columna, startCell)
+      this.model.getMundoFromCelda(run.end, run.columna, endCell)
+    }
+
+    const length = startCell.distanceTo(endCell)
+    const bulbCount = Math.max(2, Math.floor(length / 0.62) + 1)
+    const points = []
+
+    for (let i = 0; i <= 20; i++) {
+      const t = i / 20
+      const point = new THREE.Vector3().lerpVectors(startCell, endCell, t)
+      point.y = y - Math.sin(t * Math.PI) * 0.16
+      points.push(point)
+    }
+
+    const cable = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(points),
+      this.garlandCableMaterial
+    )
+    this.garlandGroup.add(cable)
+
+    for (let i = 0; i < bulbCount; i++) {
+      const t = bulbCount === 1 ? 0.5 : i / (bulbCount - 1)
+      const position = new THREE.Vector3().lerpVectors(startCell, endCell, t)
+      position.y = y - Math.sin(t * Math.PI) * 0.16 - 0.09
+      this.addGarlandBulb(position, this.garlandBulbs.length)
+    }
+  }
+
+  addGarlandBulb(position, index) {
+    const material = this.garlandBulbMaterials[index % this.garlandBulbMaterials.length]
+    const bulb = new THREE.Mesh(this.garlandBulbGeometry, material)
+
+    bulb.position.copy(position)
+    bulb.userData.phase = index * 0.41
+    bulb.userData.baseScale = 1
+    this.garlandGroup.add(bulb)
+    this.garlandBulbs.push(bulb)
+
+    // Solo algunas bombillas tienen PointLight real para mantener buen rendimiento.
+    if (this.garlandPointLights.length < 32 && index % 8 === 0) {
+      const light = new THREE.PointLight(material.color, 0.04, 3.7, 1.45)
+      light.position.copy(position)
+      light.userData.phase = bulb.userData.phase
+      this.garlandGroup.add(light)
+      this.garlandPointLights.push(light)
+    }
   }
 
   placePlayerAtCell(fila, columna) {
@@ -724,6 +932,7 @@ class MyScene extends THREE.Scene {
 
   registrarPickupRecogido() {
     this.pickupsRecogidos = Math.min(this.totalPickups, this.pickupsRecogidos + 1)
+    this.setSkyProgressFromPickups()
     this.updateHud()
   }
 
@@ -833,10 +1042,148 @@ class MyScene extends THREE.Scene {
 
   updateLights(delta) {
     this.lightTime += delta
+    this.updateSky(delta)
+    this.updateGarlandLights()
+  }
 
-    const hue = (0.04 + Math.sin(this.lightTime * 0.7) * 0.05 + 1) % 1
-    this.dynamicLight.color.setHSL(hue, 0.85, 0.55)
-    this.dynamicLight.intensity = 70 + Math.sin(this.lightTime * 1.4) * 18
+  updateGarlandLights() {
+    const nightFactor = THREE.MathUtils.smoothstep(this.skyProgress, 0.18, 1.0)
+    const emissiveIntensity = THREE.MathUtils.lerp(0.18, 2.25, nightFactor)
+    const lightIntensity = THREE.MathUtils.lerp(0.0, 1.35, nightFactor)
+
+    if (this.garlandBulbMaterials) {
+      this.garlandBulbMaterials.forEach((material, index) => {
+        const pulse = 0.88 + Math.sin(this.lightTime * 2.4 + index * 0.9) * 0.12
+        material.emissiveIntensity = emissiveIntensity * pulse
+      })
+    }
+
+    this.garlandBulbs.forEach((bulb) => {
+      const pulse = 0.96 + Math.sin(this.lightTime * 3.1 + bulb.userData.phase) * 0.04
+      bulb.scale.setScalar(pulse)
+    })
+
+    this.garlandPointLights.forEach((light) => {
+      const pulse = 0.82 + Math.sin(this.lightTime * 2.8 + light.userData.phase) * 0.18
+      light.intensity = lightIntensity * pulse
+    })
+  }
+
+  setSkyProgressFromPickups() {
+    const total = Math.max(1, this.totalPickupsActual())
+    this.targetSkyProgress = THREE.MathUtils.clamp(this.pickupsRecogidosActuales() / total, 0, 1)
+  }
+
+  updateSky(delta) {
+    this.setSkyProgressFromPickups()
+
+    const previousProgress = this.skyProgress
+    this.skyProgress = THREE.MathUtils.damp(this.skyProgress, this.targetSkyProgress, 1.8, delta)
+
+    if (Math.abs(this.skyProgress - previousProgress) > 0.002 || this.skyTextureNeedsRefresh) {
+      this.applySkyState(this.skyProgress)
+      this.drawSkyTexture(this.skyProgress)
+      this.skyTextureNeedsRefresh = false
+    }
+
+    if (this.skyDome) {
+      this.skyDome.position.copy(this.camera.position)
+    }
+  }
+
+  applySkyState(progress) {
+    const dawn = new THREE.Color(0x77b8df)
+    const sunset = new THREE.Color(0xf08d56)
+    const night = new THREE.Color(0x020713)
+    const fogDay = new THREE.Color(0xf3c36f)
+    const fogNight = new THREE.Color(0x030814)
+
+    const skyColor = dawn.clone()
+
+    if (progress < 0.58) {
+      skyColor.lerp(sunset, progress / 0.58)
+    } else {
+      skyColor.copy(sunset).lerp(night, (progress - 0.58) / 0.42)
+    }
+
+    this.background.copy(skyColor)
+    this.fog.color.copy(fogDay).lerp(fogNight, progress)
+    this.fog.near = THREE.MathUtils.lerp(13, 9, progress)
+    this.fog.far = THREE.MathUtils.lerp(36, 26, progress)
+
+    this.sunLight.intensity = THREE.MathUtils.lerp(1.35, 0.08, progress)
+    this.sunLight.color.copy(new THREE.Color(0xfff4df).lerp(new THREE.Color(0x2f3d69), progress))
+    this.sunLight.position.set(
+      THREE.MathUtils.lerp(6, -6, progress),
+      THREE.MathUtils.lerp(14, 2.5, progress),
+      THREE.MathUtils.lerp(5, -4, progress)
+    )
+  }
+
+  drawSkyTexture(progress) {
+    const context = this.skyContext
+    const width = this.skyCanvas.width
+    const height = this.skyCanvas.height
+    const topColor = this.getSkyGradientColor(progress, true)
+    const horizonColor = this.getSkyGradientColor(progress, false)
+    const gradient = context.createLinearGradient(0, 0, 0, height)
+
+    gradient.addColorStop(0, topColor)
+    gradient.addColorStop(0.72, horizonColor)
+    gradient.addColorStop(1, '#f0bd69')
+
+    context.fillStyle = gradient
+    context.fillRect(0, 0, width, height)
+
+    const sunProgress = THREE.MathUtils.clamp(progress / 0.72, 0, 1)
+    const sunX = THREE.MathUtils.lerp(width * 0.24, width * 0.74, sunProgress)
+    const sunY = THREE.MathUtils.lerp(height * 0.26, height * 0.74, sunProgress)
+    const sunRadius = THREE.MathUtils.lerp(24, 15, progress)
+    const sunAlpha = THREE.MathUtils.clamp(1 - progress * 1.15, 0, 1)
+
+    context.globalAlpha = sunAlpha
+    context.fillStyle = '#ffe7a3'
+    context.beginPath()
+    context.arc(sunX, sunY, sunRadius, 0, Math.PI * 2)
+    context.fill()
+
+    const moonAlpha = THREE.MathUtils.clamp((progress - 0.62) / 0.38, 0, 1)
+    context.globalAlpha = moonAlpha
+    context.fillStyle = '#f1f0da'
+    context.beginPath()
+    context.arc(width * 0.74, height * 0.26, 18, 0, Math.PI * 2)
+    context.fill()
+    context.fillStyle = this.getSkyGradientColor(progress, true)
+    context.beginPath()
+    context.arc(width * 0.755, height * 0.245, 18, 0, Math.PI * 2)
+    context.fill()
+
+    context.globalAlpha = THREE.MathUtils.clamp((progress - 0.48) / 0.52, 0, 1)
+    context.fillStyle = '#fff8d6'
+    this.skyStars.forEach((star) => {
+      context.globalAlpha = star.alpha * THREE.MathUtils.clamp((progress - 0.48) / 0.52, 0, 1)
+      context.beginPath()
+      context.arc(star.x * width, star.y * height, star.radius, 0, Math.PI * 2)
+      context.fill()
+    })
+
+    context.globalAlpha = 1
+    this.skyTexture.needsUpdate = true
+  }
+
+  getSkyGradientColor(progress, isTop) {
+    const day = new THREE.Color(isTop ? 0x77b8df : 0xffd08b)
+    const sunset = new THREE.Color(isTop ? 0xe27765 : 0xffb45f)
+    const night = new THREE.Color(isTop ? 0x020713 : 0x071225)
+    const color = day.clone()
+
+    if (progress < 0.58) {
+      color.lerp(sunset, progress / 0.58)
+    } else {
+      color.copy(sunset).lerp(night, (progress - 0.58) / 0.42)
+    }
+
+    return `#${color.getHexString()}`
   }
 
   updatePlayerMarker() {
@@ -901,7 +1248,21 @@ class MyScene extends THREE.Scene {
       const bottom = height - size - margin
 
       this.renderer.clearDepth()
+      const skyWasVisible = this.skyDome ? this.skyDome.visible : false
+      const sceneFog = this.fog
+
+      if (this.skyDome) {
+        this.skyDome.visible = false
+      }
+
+      this.fog = null
       this.renderViewport(this, this.topCamera, left, bottom, size, size)
+      this.fog = sceneFog
+
+      if (this.skyDome) {
+        this.skyDome.visible = skyWasVisible
+      }
+
       this.renderer.setScissorTest(false)
     }
   }
