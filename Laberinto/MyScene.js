@@ -8,7 +8,8 @@ import { Farolillo } from '../pick-ups/Farolillo.js'
 import { Castanuelas } from '../pick-ups/Castanuelas.js'
 import { Rebujito } from '../pick-ups/Rebujito.js'
 
-import { Laberinto } from './Laberinto.js?v=feria-casetas-18'
+import { Laberinto } from './Laberinto.js?v=feria-casetas-28'
+import { FeriaExtras } from './FeriaExtras.js?v=feria-extras-12'
 
 class MyScene extends THREE.Scene {
 
@@ -19,7 +20,7 @@ class MyScene extends THREE.Scene {
     this.clock = new THREE.Clock()
 
     // Parametros principales del jugador y de las ayudas de prueba.
-    this.playerHeight = 1.65
+    this.playerHeight = 1.25
     this.playerRadius = 0.28
     this.interactionDistance = 3.0
     this.minCameraFov = 35
@@ -33,8 +34,6 @@ class MyScene extends THREE.Scene {
     this.pickupTeleportIndex = 0
     this.doorSurfaceOffset = 0.08
     this.animatedObjects = []
-    this.garlandBulbs = []
-    this.garlandPointLights = []
     this.lightTime = 0
     this.skyProgress = 0
     this.targetSkyProgress = 0
@@ -80,7 +79,7 @@ class MyScene extends THREE.Scene {
     this.bindEvents()
 
     const laberintoCargado = $.Deferred()
-    this.model = new Laberinto('./laberinto.txt', laberintoCargado)
+    this.model = new Laberinto('./laberinto.txt?v=feria-28', laberintoCargado)
     this.add(this.model)
 
     // FileLoader carga el laberinto de forma asincrona; los objetos que dependen
@@ -179,7 +178,7 @@ class MyScene extends THREE.Scene {
     const texture = new THREE.CanvasTexture(canvas)
     texture.wrapS = THREE.RepeatWrapping
     texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(12, 12)
+    texture.repeat.set(18, 18)
     texture.colorSpace = THREE.SRGBColorSpace
 
     return texture
@@ -197,9 +196,9 @@ class MyScene extends THREE.Scene {
       metalness: 0.0
     })
 
-    this.ground = new THREE.Mesh(new THREE.PlaneGeometry(31, 31), materialGround)
+    this.ground = new THREE.Mesh(new THREE.PlaneGeometry(36, 44), materialGround)
     this.ground.rotation.x = -Math.PI / 2
-    this.ground.position.y = -0.01
+    this.ground.position.set(0, -0.01, -4.5)
     this.ground.receiveShadow = true
     this.add(this.ground)
   }
@@ -385,7 +384,7 @@ class MyScene extends THREE.Scene {
       `Laberinto cargado: ${this.model.zNumBloques} filas x ${this.model.xNumBloques} columnas`
     )
 
-    this.placePlayerAtCell(1, 1)
+    this.placePlayerAtEntrance()
     this.placeDoorAtWall(25, 27, 'west')
 
     // 1. Crear el Abanico (Articulado y animado para la Defensa 3)
@@ -405,161 +404,29 @@ class MyScene extends THREE.Scene {
     const rebujito = new Rebujito()
     this.posicionarPickup(rebujito, 23, 21)
 
-    this.createGarlands()
+    this.feriaExtras = new FeriaExtras(this.model)
+    this.add(this.feriaExtras)
     this.configureTopCamera()
     this.updateHud()
-  }
-
-  createGarlands() {
-    if (this.garlandGroup) {
-      this.remove(this.garlandGroup)
-    }
-
-    this.garlandGroup = new THREE.Group()
-    this.garlandBulbs = []
-    this.garlandPointLights = []
-
-    this.garlandCableMaterial = new THREE.LineBasicMaterial({ color: 0x1c1510 })
-    this.garlandBulbGeometry = new THREE.SphereGeometry(0.055, 12, 8)
-    this.garlandBulbMaterials = [
-      this.createGarlandBulbMaterial(0xffd36a),
-      this.createGarlandBulbMaterial(0xff6f5f),
-      this.createGarlandBulbMaterial(0x67d8ff),
-      this.createGarlandBulbMaterial(0x82ff9a)
-    ]
-
-    const horizontalRuns = this.findFreeRuns('horizontal', 3)
-    const verticalRuns = this.findFreeRuns('vertical', 3)
-
-    horizontalRuns.forEach((run) => this.addGarlandRun(run, 'horizontal'))
-    verticalRuns.forEach((run) => this.addGarlandRun(run, 'vertical'))
-
-    this.add(this.garlandGroup)
-  }
-
-  createGarlandBulbMaterial(color) {
-    return new THREE.MeshStandardMaterial({
-      color,
-      emissive: color,
-      emissiveIntensity: 0.2,
-      roughness: 0.25
-    })
-  }
-
-  findFreeRuns(direction, minLength) {
-    const runs = []
-
-    if (direction === 'horizontal') {
-      for (let fila = 1; fila < this.model.zNumBloques - 1; fila++) {
-        let start = null
-
-        for (let columna = 1; columna < this.model.xNumBloques - 1; columna++) {
-          const isFree = !this.model.esMuro(fila, columna)
-
-          if (isFree && start === null) {
-            start = columna
-          }
-
-          if ((!isFree || columna === this.model.xNumBloques - 2) && start !== null) {
-            const end = isFree && columna === this.model.xNumBloques - 2 ? columna : columna - 1
-
-            if (end - start + 1 >= minLength) {
-              runs.push({ fila, start, end })
-            }
-
-            start = null
-          }
-        }
-      }
-    } else {
-      for (let columna = 1; columna < this.model.xNumBloques - 1; columna++) {
-        let start = null
-
-        for (let fila = 1; fila < this.model.zNumBloques - 1; fila++) {
-          const isFree = !this.model.esMuro(fila, columna)
-
-          if (isFree && start === null) {
-            start = fila
-          }
-
-          if ((!isFree || fila === this.model.zNumBloques - 2) && start !== null) {
-            const end = isFree && fila === this.model.zNumBloques - 2 ? fila : fila - 1
-
-            if (end - start + 1 >= minLength) {
-              runs.push({ columna, start, end })
-            }
-
-            start = null
-          }
-        }
-      }
-    }
-
-    return runs
-  }
-
-  addGarlandRun(run, direction) {
-    const startCell = new THREE.Vector3()
-    const endCell = new THREE.Vector3()
-    const y = 2.34
-
-    if (direction === 'horizontal') {
-      this.model.getMundoFromCelda(run.fila, run.start, startCell)
-      this.model.getMundoFromCelda(run.fila, run.end, endCell)
-    } else {
-      this.model.getMundoFromCelda(run.start, run.columna, startCell)
-      this.model.getMundoFromCelda(run.end, run.columna, endCell)
-    }
-
-    const length = startCell.distanceTo(endCell)
-    const bulbCount = Math.max(2, Math.floor(length / 0.62) + 1)
-    const points = []
-
-    for (let i = 0; i <= 20; i++) {
-      const t = i / 20
-      const point = new THREE.Vector3().lerpVectors(startCell, endCell, t)
-      point.y = y - Math.sin(t * Math.PI) * 0.16
-      points.push(point)
-    }
-
-    const cable = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(points),
-      this.garlandCableMaterial
-    )
-    this.garlandGroup.add(cable)
-
-    for (let i = 0; i < bulbCount; i++) {
-      const t = bulbCount === 1 ? 0.5 : i / (bulbCount - 1)
-      const position = new THREE.Vector3().lerpVectors(startCell, endCell, t)
-      position.y = y - Math.sin(t * Math.PI) * 0.16 - 0.09
-      this.addGarlandBulb(position, this.garlandBulbs.length)
-    }
-  }
-
-  addGarlandBulb(position, index) {
-    const material = this.garlandBulbMaterials[index % this.garlandBulbMaterials.length]
-    const bulb = new THREE.Mesh(this.garlandBulbGeometry, material)
-
-    bulb.position.copy(position)
-    bulb.userData.phase = index * 0.41
-    bulb.userData.baseScale = 1
-    this.garlandGroup.add(bulb)
-    this.garlandBulbs.push(bulb)
-
-    // Solo algunas bombillas tienen PointLight real para mantener buen rendimiento.
-    if (this.garlandPointLights.length < 32 && index % 8 === 0) {
-      const light = new THREE.PointLight(material.color, 0.04, 3.7, 1.45)
-      light.position.copy(position)
-      light.userData.phase = bulb.userData.phase
-      this.garlandGroup.add(light)
-      this.garlandPointLights.push(light)
-    }
   }
 
   placePlayerAtCell(fila, columna) {
     this.model.getMundoFromCelda(fila, columna, this.tmpPosition)
     this.camera.position.set(this.tmpPosition.x, this.playerHeight, this.tmpPosition.z)
     this.camera.lookAt(this.tmpPosition.x + 1, this.playerHeight, this.tmpPosition.z)
+  }
+
+  placePlayerAtEntrance() {
+    const leftOpening = new THREE.Vector3()
+    const rightOpening = new THREE.Vector3()
+    this.model.getMundoFromCelda(0, 1, leftOpening)
+    this.model.getMundoFromCelda(0, 5, rightOpening)
+
+    const entranceX = (leftOpening.x + rightOpening.x) * 0.5
+    const entranceZ = leftOpening.z - this.model.anchoBloque * 6
+
+    this.camera.position.set(entranceX, this.playerHeight, entranceZ)
+    this.camera.lookAt(entranceX, this.playerHeight, leftOpening.z + this.model.anchoBloque)
   }
 
   placeDoorAtWall(fila, columna, lado = 'south') {
@@ -1043,30 +910,9 @@ class MyScene extends THREE.Scene {
   updateLights(delta) {
     this.lightTime += delta
     this.updateSky(delta)
-    this.updateGarlandLights()
-  }
-
-  updateGarlandLights() {
-    const nightFactor = THREE.MathUtils.smoothstep(this.skyProgress, 0.18, 1.0)
-    const emissiveIntensity = THREE.MathUtils.lerp(0.18, 2.25, nightFactor)
-    const lightIntensity = THREE.MathUtils.lerp(0.0, 1.35, nightFactor)
-
-    if (this.garlandBulbMaterials) {
-      this.garlandBulbMaterials.forEach((material, index) => {
-        const pulse = 0.88 + Math.sin(this.lightTime * 2.4 + index * 0.9) * 0.12
-        material.emissiveIntensity = emissiveIntensity * pulse
-      })
+    if (this.feriaExtras) {
+      this.feriaExtras.update(this.lightTime, this.skyProgress)
     }
-
-    this.garlandBulbs.forEach((bulb) => {
-      const pulse = 0.96 + Math.sin(this.lightTime * 3.1 + bulb.userData.phase) * 0.04
-      bulb.scale.setScalar(pulse)
-    })
-
-    this.garlandPointLights.forEach((light) => {
-      const pulse = 0.82 + Math.sin(this.lightTime * 2.8 + light.userData.phase) * 0.18
-      light.intensity = lightIntensity * pulse
-    })
   }
 
   setSkyProgressFromPickups() {

@@ -13,6 +13,12 @@ class Laberinto extends THREE.Object3D {
     this.matriz = []
     this.xNumBloques = 0
     this.zNumBloques = 0
+    this.entradaExterior = {
+      filaMin: -7,
+      filaMax: 0,
+      columnaMin: 1,
+      columnaMax: 5
+    }
 
     // Geometria compartida por todos los muros. Se traslada media altura para
     // que cada bloque apoye en el suelo aunque su posicion Y sea 0.
@@ -143,6 +149,10 @@ class Laberinto extends THREE.Object3D {
   }
 
   esMuro(fila, columna) {
+    if (this.esEntradaExterior(fila, columna)) {
+      return false
+    }
+
     if (
       fila < 0 ||
       columna < 0 ||
@@ -153,6 +163,15 @@ class Laberinto extends THREE.Object3D {
     }
 
     return this.matriz[fila][columna] === Laberinto.WALL
+  }
+
+  esEntradaExterior(fila, columna) {
+    return (
+      fila >= this.entradaExterior.filaMin &&
+      fila <= this.entradaExterior.filaMax &&
+      columna >= this.entradaExterior.columnaMin &&
+      columna <= this.entradaExterior.columnaMax
+    )
   }
 
   puedeMoverseA(posicion, radio = 0.25) {
