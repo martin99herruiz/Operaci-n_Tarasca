@@ -28,13 +28,18 @@ class Rebujito extends THREE.Object3D {
         this.recogido = false;
 
         // ==========================================
-        // CONFIGURACIÓN DE MATERIALES SIN ILUMINACIÓN
+        // CONFIGURACIÓN DE MATERIALES
         // ==========================================
 
-        this.materialCristal = new THREE.MeshBasicMaterial({
+        this.materialCristal = new THREE.MeshPhysicalMaterial({
             color: 0xeaf8ff,
             transparent: true,
             opacity: 0.34,
+            roughness: 0.04,
+            metalness: 0.0,
+            transmission: 0.55,
+            thickness: 0.08,
+            ior: 1.45,
             side: THREE.DoubleSide,
             depthWrite: false
         });
@@ -44,26 +49,39 @@ class Rebujito extends THREE.Object3D {
         this.texturaLimon = this.crearTexturaLimon();
         this.texturaPajita = this.crearTexturaPajita();
 
-        this.materialLiquido = new THREE.MeshBasicMaterial({
+        this.materialLiquido = new THREE.MeshStandardMaterial({
             color: 0xf0d86a,
+            bumpMap: this.texturaBurbujas,
+            bumpScale: 0.045,
             transparent: true,
-            opacity: 0.82
+            opacity: 0.82,
+            roughness: 0.34,
+            metalness: 0.0
         });
 
-        this.materialLimon = new THREE.MeshBasicMaterial({
+        this.materialLimon = new THREE.MeshStandardMaterial({
             color: 0xffe055,
-            map: this.texturaLimon
+            map: this.texturaLimon,
+            roughness: 0.72,
+            metalness: 0.0
         });
 
-        this.materialPajita = new THREE.MeshBasicMaterial({
+        this.materialPajita = new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            map: this.texturaPajita
+            map: this.texturaPajita,
+            roughness: 0.48,
+            metalness: 0.0
         });
 
-        this.materialHielo = new THREE.MeshBasicMaterial({
+        this.materialHielo = new THREE.MeshPhysicalMaterial({
             color: 0xe8fbff,
             transparent: true,
-            opacity: 0.48
+            opacity: 0.48,
+            roughness: 0.08,
+            metalness: 0.0,
+            transmission: 0.28,
+            thickness: 0.06,
+            depthWrite: false
         });
 
         this.construir();
@@ -99,6 +117,7 @@ class Rebujito extends THREE.Object3D {
 
         const textura = new THREE.CanvasTexture(canvas);
         textura.wrapS = textura.wrapT = THREE.RepeatWrapping;
+        textura.repeat.set(2, 2);
         return textura;
     }
 
@@ -128,6 +147,7 @@ class Rebujito extends THREE.Object3D {
         ctx.stroke();
 
         const textura = new THREE.CanvasTexture(canvas);
+        textura.colorSpace = THREE.SRGBColorSpace;
         return textura;
     }
 
@@ -152,6 +172,7 @@ class Rebujito extends THREE.Object3D {
         const textura = new THREE.CanvasTexture(canvas);
         textura.wrapS = textura.wrapT = THREE.RepeatWrapping;
         textura.repeat.set(1, 3);
+        textura.colorSpace = THREE.SRGBColorSpace;
         return textura;
     }
 

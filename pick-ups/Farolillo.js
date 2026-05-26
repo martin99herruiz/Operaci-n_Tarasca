@@ -26,16 +26,25 @@ class Farolillo extends THREE.Object3D {
         this.rotacionBaseX = 0;
         this.rotacionBaseZ = 0;
 
-        // --- CONFIGURACIÓN DE MATERIALES SIN ILUMINACIÓN ---
+        const texturaPapel = this.crearTexturaPapelConLunares();
+        const relievePapel = this.crearRelievePapel();
+
+        // --- CONFIGURACIÓN DE MATERIALES ---
         
         // Metal de la llave: laton envejecido, mas coherente con una llave antigua.
-        this.materialPlata = new THREE.MeshBasicMaterial({
-            color: 0xc79633
+        this.materialPlata = new THREE.MeshStandardMaterial({
+            color: 0xc79633,
+            roughness: 0.34,
+            metalness: 0.82
         });
 
         // Papel de farolillo: rojo con lunares y relieve suave de pliegues.
-        this.materialPapel = new THREE.MeshBasicMaterial({
-            map: this.crearTexturaPapelConLunares(),
+        this.materialPapel = new THREE.MeshStandardMaterial({
+            map: texturaPapel,
+            bumpMap: relievePapel,
+            bumpScale: 0.045,
+            roughness: 0.78,
+            metalness: 0.0,
             side: THREE.DoubleSide
         });
 
@@ -201,6 +210,7 @@ class Farolillo extends THREE.Object3D {
         }
         const textura = new THREE.CanvasTexture(canvas);
         textura.wrapS = THREE.RepeatWrapping; // Repetición horizontal
+        textura.colorSpace = THREE.SRGBColorSpace;
         return textura;
     }
 

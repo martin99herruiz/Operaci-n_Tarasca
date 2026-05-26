@@ -89,10 +89,31 @@ class Laberinto extends THREE.Object3D {
     // El fichero de texto representa el mapa: X = muro, espacio = celda libre.
     // Se normalizan saltos de linea y se rellenan filas cortas para poder indexar
     // siempre con matriz[fila][columna].
-    const lineas = texto
+    const lineasOriginales = texto
       .replace(/\r/g, '')
       .split('\n')
-      .filter((linea, indice, array) => linea.length > 0 || indice < array.length - 1)
+
+    while (lineasOriginales.length > 0 && lineasOriginales[0].trim().length === 0) {
+      lineasOriginales.shift()
+    }
+
+    while (lineasOriginales.length > 0 && lineasOriginales[lineasOriginales.length - 1].trim().length === 0) {
+      lineasOriginales.pop()
+    }
+
+    const lineasSinEspaciosFinales = lineasOriginales.map((linea) => linea.trimEnd())
+    const indentacionComun = lineasSinEspaciosFinales.reduce((minimo, linea) => {
+      if (linea.trim().length === 0) {
+        return minimo
+      }
+
+      const espaciosIniciales = linea.match(/^ */)[0].length
+      return Math.min(minimo, espaciosIniciales)
+    }, Infinity)
+
+    const lineas = lineasSinEspaciosFinales.map((linea) =>
+      linea.slice(Number.isFinite(indentacionComun) ? indentacionComun : 0)
+    )
 
     this.zNumBloques = lineas.length
     this.xNumBloques = Math.max(...lineas.map((linea) => linea.length))

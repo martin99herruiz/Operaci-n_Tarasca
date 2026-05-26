@@ -8,6 +8,8 @@ class FeriaExtras extends THREE.Group {
     this.laberinto = laberinto
     this.garlandBulbs = []
     this.garlandPointLights = []
+    this.garlandLightStep = 3
+    this.maxGarlandPointLights = 120
     this.garlandCableMaterial = new THREE.LineBasicMaterial({ color: 0x1c1510 })
     this.garlandBulbGeometry = new THREE.SphereGeometry(0.055, 12, 8)
     this.garlandBulbMaterials = [
@@ -452,19 +454,19 @@ class FeriaExtras extends THREE.Group {
     this.add(bulb)
     this.garlandBulbs.push(bulb)
 
-    if (this.garlandPointLights.length < 40 && index % 8 === 0) {
-      const light = new THREE.PointLight(material.color, 0.08, 4.8, 1.25)
+    if (this.garlandPointLights.length < this.maxGarlandPointLights && index % this.garlandLightStep === 0) {
+      const light = new THREE.PointLight(material.color, 0.08, 5.6, 1.15)
       light.position.copy(position)
-      light.userData.phase = bulb.userData.phase
       this.add(light)
       this.garlandPointLights.push(light)
     }
   }
 
-  update(lightTime, skyProgress) {
+  update(lightTime, skyProgress, bulbLightLevel = 1) {
     const nightFactor = THREE.MathUtils.smoothstep(skyProgress, 0.18, 1.0)
-    const emissiveIntensity = THREE.MathUtils.lerp(0.28, 3.35, nightFactor)
-    const lightIntensity = THREE.MathUtils.lerp(0.0, 2.6, nightFactor)
+    const lightScale = THREE.MathUtils.clamp(bulbLightLevel, 0, 3)
+    const emissiveIntensity = THREE.MathUtils.lerp(0.28, 3.35, nightFactor) * lightScale
+    const lightIntensity = THREE.MathUtils.lerp(0.0, 2.6, nightFactor) * lightScale
 
     this.garlandBulbMaterials.forEach((material, index) => {
       const pulse = 0.88 + Math.sin(lightTime * 2.4 + index * 0.9) * 0.12
@@ -477,8 +479,7 @@ class FeriaExtras extends THREE.Group {
     })
 
     this.garlandPointLights.forEach((light) => {
-      const pulse = 0.82 + Math.sin(lightTime * 2.8 + light.userData.phase) * 0.18
-      light.intensity = lightIntensity * pulse
+      light.intensity = lightIntensity
     })
   }
 }

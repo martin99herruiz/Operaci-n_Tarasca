@@ -223,16 +223,16 @@ Los materiales basados en color aparecen en elementos como los muros del laberin
 
 Los materiales de los pick-ups se han asignado segun el tipo de objeto que representan:
 
-- Abanico: las varillas usan textura de madera y la tela usa textura decorativa.
-- Farolillo/llave: la llave usa un material de laton envejecido y el farolillo usa papel rojo con lunares blancos.
-- Castañuelas: las conchas usan textura de madera para reforzar la sensacion de pieza tallada.
-- Rebujito: el vaso usa material transparente de cristal, el liquido tiene color amarillento, el limon tiene textura radial, la pajita usa franjas rojas y blancas, y los hielos usan material transparente.
+- Abanico: las varillas usan textura de madera y la tela usa textura decorativa con relieve.
+- Farolillo/llave: la llave usa un material metalico de laton envejecido y el farolillo usa papel rojo con lunares blancos y relieve de pliegues.
+- Castañuelas: las conchas usan textura procedural de madera con relieve para reforzar la sensacion de pieza tallada.
+- Rebujito: el vaso usa material fisico transparente de cristal, el liquido tiene color amarillento con relieve de burbujas, el limon tiene textura radial, la pajita usa franjas rojas y blancas, y los hielos usan material transparente.
 
-Tambien hay texturas en el canal de relieve. El suelo de albero utiliza `bumpMap` con una textura procedural generada por canvas para que el terreno no quede completamente plano.
+Tambien hay texturas en el canal de relieve. El suelo de albero, la tela del abanico, el papel del farolillo, la madera de las castañuelas y el liquido del rebujito utilizan `bumpMap` para que las superficies no queden completamente planas.
 
 En algunos casos se usa `RepeatWrapping` para repetir la textura y evitar que quede estirada sobre la geometria.
 
-El vaso del rebujito usa un material transparente de doble cara para representar el cristal y permitir ver el contenido interior.
+El vaso del rebujito usa `MeshPhysicalMaterial` transparente de doble cara para representar el cristal y permitir ver el contenido interior.
 
 ## 13. Luces
 

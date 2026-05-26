@@ -13,6 +13,10 @@ class Abanico extends THREE.Object3D {
         // --- CONFIGURACIÓN DE TEXTURAS ---
         const texturaColor = this.cargarTexturaRepetida('../imgs/tela.jpeg', 2, 2);
         const texturaMadera = this.cargarTexturaRepetida('../imgs/wood.jpg', 1.2, 3.5);
+        const texturaRelieveTela = new THREE.CanvasTexture(this.crearRelieveTela());
+        texturaRelieveTela.wrapS = THREE.RepeatWrapping;
+        texturaRelieveTela.wrapT = THREE.RepeatWrapping;
+        texturaRelieveTela.repeat.set(2, 2);
 
         // --- PARÁMETROS ESTRUCTURALES ---
         this.numModulos = 12;            
@@ -32,21 +36,29 @@ class Abanico extends THREE.Object3D {
         this.rotacionActiva = true;
         this.animacionActiva = true;
 
-        // --- DEFINICIÓN DE MATERIALES SIN ILUMINACIÓN ---
+        // --- DEFINICIÓN DE MATERIALES ---
         
-        this.materialVarilla = new THREE.MeshBasicMaterial({
+        this.materialVarilla = new THREE.MeshStandardMaterial({
             color: 0x8a4a1f,
-            map: texturaMadera
+            map: texturaMadera,
+            roughness: 0.62,
+            metalness: 0.0
         });
 
-        this.materialTela = new THREE.MeshBasicMaterial({
+        this.materialTela = new THREE.MeshStandardMaterial({
             color: 0xf8efd8,
             map: texturaColor,
+            bumpMap: texturaRelieveTela,
+            bumpScale: 0.035,
+            roughness: 0.86,
+            metalness: 0.0,
             side: THREE.DoubleSide
         });
 
-        this.materialBorde = new THREE.MeshBasicMaterial({
-            color: 0xd4af37
+        this.materialBorde = new THREE.MeshStandardMaterial({
+            color: 0xd4af37,
+            roughness: 0.32,
+            metalness: 0.65
         });
 
         // --- INICIALIZACIÓN DE ESTRUCTURA ---
@@ -66,6 +78,7 @@ class Abanico extends THREE.Object3D {
         textura.wrapS = THREE.RepeatWrapping;
         textura.wrapT = THREE.RepeatWrapping;
         textura.repeat.set(repeatX, repeatY);
+        textura.colorSpace = THREE.SRGBColorSpace;
         return textura;
     }
 

@@ -106,9 +106,9 @@ const materialGround = new THREE.MeshStandardMaterial({
 Los pick-ups usan texturas para reforzar su aspecto real:
 
 - El abanico usa textura de madera para las varillas y textura decorativa en la tela.
-- Las castanuelas usan textura de madera para simular el veteado.
+- Las castanuelas usan textura procedural de madera para simular el veteado.
 - El rebujito incluye materiales para cristal, liquido, limon, pajita e hielos.
-- El farolillo usa materiales decorativos para que se reconozca como objeto festivo.
+- El farolillo usa una textura procedural de lunares para que se reconozca como objeto festivo.
 
 En varios casos se usan `CanvasTexture` para generar patrones por codigo, evitando depender de imagenes externas para cada detalle.
 
@@ -116,13 +116,13 @@ En varios casos se usan `CanvasTexture` para generar patrones por codigo, evitan
 
 El requisito de relieve se cumple con materiales que usan mapas de relieve (`bumpMap`).
 
-El suelo de albero aplica relieve procedural usando la misma textura generada por canvas como `bumpMap`. Asi el terreno no queda completamente plano y aprovecha la luz direccional de la escena.
+El suelo de albero aplica relieve procedural usando la misma textura generada por canvas como `bumpMap`. Los pick-ups tambien usan relieve: la tela del abanico, el papel del farolillo, la madera de las castanuelas y el liquido del rebujito tienen `bumpMap`.
 
 Esto permite que el material no sea solo plano, sino que reaccione mejor a la iluminacion.
 
 ### Materiales transparentes
 
-El rebujito incluye un vaso transparente. Para ello se usa un material con transparencia, doble cara y escritura de profundidad desactivada.
+El rebujito incluye un vaso transparente. Para ello se usa `MeshPhysicalMaterial` con transparencia, transmision, grosor y escritura de profundidad desactivada.
 
 El objetivo es que el vaso se perciba como cristal y que pueda verse el contenido interior.
 

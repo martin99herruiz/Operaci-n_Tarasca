@@ -17,14 +17,14 @@ class Castanuelas extends THREE.Object3D {
         // MATERIALES
         // =====================================================
         const texturaMadera = this.crearTexturaMaderaSuave();
-        this.materialMadera = new THREE.MeshBasicMaterial({
+        const relieveMadera = this.crearRelieveMadera();
+        this.materialMadera = new THREE.MeshStandardMaterial({
             color: 0x9a6634,
             map: texturaMadera,
-            side: THREE.DoubleSide
-        });
-
-        this.materialRelieve = new THREE.MeshBasicMaterial({
-            color: 0x6f3518,
+            bumpMap: relieveMadera,
+            bumpScale: 0.045,
+            roughness: 0.68,
+            metalness: 0.0,
             side: THREE.DoubleSide
         });
 
@@ -516,8 +516,10 @@ class Castanuelas extends THREE.Object3D {
     crearCordelConcha(bbox, zCordel) {
         const grupo = new THREE.Group();
 
-        const materialCordel = new THREE.MeshBasicMaterial({
-            color: 0x3a1608
+        const materialCordel = new THREE.MeshStandardMaterial({
+            color: 0x3a1608,
+            roughness: 0.9,
+            metalness: 0.0
         });
 
         const xLado = bbox.max.x * 0.24;
@@ -544,64 +546,6 @@ class Castanuelas extends THREE.Object3D {
 
         return grupo;
     }
-    // =====================================================
-    // TEXTURA PROCEDURAL DE MADERA
-    // =====================================================
-    crearTexturaMadera() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
-
-        const ctx = canvas.getContext('2d');
-
-        ctx.fillStyle = '#8b4a20';
-        ctx.fillRect(0, 0, 512, 512);
-
-        for (let i = 0; i < 90; i++) {
-            const x = Math.random() * 512;
-
-            ctx.strokeStyle = `rgba(60, 25, 8, ${0.08 + Math.random() * 0.15})`;
-            ctx.lineWidth = 1 + Math.random() * 4;
-
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-
-            for (let y = 0; y <= 512; y += 15) {
-                ctx.lineTo(
-                    x + Math.sin(y * 0.035 + i) * 20,
-                    y
-                );
-            }
-
-            ctx.stroke();
-        }
-
-        for (let i = 0; i < 25; i++) {
-            ctx.strokeStyle = `rgba(180, 100, 40, ${0.05 + Math.random() * 0.08})`;
-            ctx.lineWidth = 1;
-
-            ctx.beginPath();
-            ctx.ellipse(
-                Math.random() * 512,
-                Math.random() * 512,
-                40 + Math.random() * 80,
-                10 + Math.random() * 25,
-                Math.random() * Math.PI,
-                0,
-                Math.PI * 2
-            );
-            ctx.stroke();
-        }
-
-        const textura = new THREE.CanvasTexture(canvas);
-        textura.wrapS = THREE.RepeatWrapping;
-        textura.wrapT = THREE.RepeatWrapping;
-        textura.repeat.set(2, 2);
-        textura.needsUpdate = true;
-
-        return textura;
-    }
-
     crearTexturaMaderaSuave() {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
@@ -636,6 +580,7 @@ class Castanuelas extends THREE.Object3D {
         const textura = new THREE.CanvasTexture(canvas);
         textura.wrapS = THREE.ClampToEdgeWrapping;
         textura.wrapT = THREE.ClampToEdgeWrapping;
+        textura.colorSpace = THREE.SRGBColorSpace;
         return textura;
     }
 

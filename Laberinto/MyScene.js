@@ -3,13 +3,13 @@ import * as TWEEN from '../libs/tween.esm.js'
 import { GUI } from 'gui'
 import { PointerLockControls } from '../libs/PointerLockControls.js'
 
-import { Abanico } from '../pick-ups/Abanico.js'
-import { Farolillo } from '../pick-ups/Farolillo.js'
-import { Castanuelas } from '../pick-ups/Castanuelas.js'
-import { Rebujito } from '../pick-ups/Rebujito.js'
+import { Abanico } from '../pick-ups/Abanico.js?v=materiales-2'
+import { Farolillo } from '../pick-ups/Farolillo.js?v=materiales-2'
+import { Castanuelas } from '../pick-ups/Castanuelas.js?v=materiales-2'
+import { Rebujito } from '../pick-ups/Rebujito.js?v=materiales-2'
 
-import { Laberinto } from './Laberinto.js?v=feria-casetas-28'
-import { FeriaExtras } from './FeriaExtras.js?v=feria-extras-12'
+import { Laberinto } from './Laberinto.js?v=feria-casetas-29'
+import { FeriaExtras } from './FeriaExtras.js?v=feria-extras-14'
 
 class MyScene extends THREE.Scene {
 
@@ -61,7 +61,8 @@ class MyScene extends THREE.Scene {
 
     this.guiControls = {
       velocidad: 2.2,
-      mostrarMiniMapa: true
+      mostrarMiniMapa: true,
+      luzBombillas: 1.0
     }
 
     this.background = new THREE.Color(0x77b8df)
@@ -79,7 +80,7 @@ class MyScene extends THREE.Scene {
     this.bindEvents()
 
     const laberintoCargado = $.Deferred()
-    this.model = new Laberinto('./laberinto.txt?v=feria-28', laberintoCargado)
+    this.model = new Laberinto('./laberinto.txt?v=feria-29', laberintoCargado)
     this.add(this.model)
 
     // FileLoader carga el laberinto de forma asincrona; los objetos que dependen
@@ -362,12 +363,19 @@ class MyScene extends THREE.Scene {
 
   createGUI() {
     const gui = new GUI({ width: 310 })
+    gui.domElement.style.position = 'absolute'
+    gui.domElement.style.top = '16px'
+    gui.domElement.style.left = '16px'
+    gui.domElement.style.right = 'auto'
 
     gui.add(this.guiControls, 'velocidad', 0.6, 5.0, 0.1)
       .name('Velocidad')
 
     gui.add(this.guiControls, 'mostrarMiniMapa')
       .name('Mini-mapa')
+
+    gui.add(this.guiControls, 'luzBombillas', 0, 3, 0.05)
+      .name('Luz bombillas')
 
     return gui
   }
@@ -931,7 +939,7 @@ class MyScene extends THREE.Scene {
     }
 
     if (this.feriaExtras) {
-      this.feriaExtras.update(this.lightTime, this.skyProgress)
+      this.feriaExtras.update(this.lightTime, this.skyProgress, this.guiControls.luzBombillas)
     }
   }
 
