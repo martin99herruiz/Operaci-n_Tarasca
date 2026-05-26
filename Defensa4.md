@@ -89,13 +89,15 @@ Se usan en elementos principales del escenario:
 - Pomo y cerradura.
 - Luces y elementos auxiliares del HUD/minimapa.
 
-Un ejemplo es el material de los muros, definido con `MeshStandardMaterial`:
+Un ejemplo es el material del suelo, definido con `MeshStandardMaterial`:
 
 ```js
-this.bloqueMat = new THREE.MeshStandardMaterial({
-  color: 0x7b4a2a,
-  roughness: 0.8,
-  metalness: 0.05
+const materialGround = new THREE.MeshStandardMaterial({
+  color: 0xd19a44,
+  map: alberoTexture,
+  bumpMap: alberoTexture,
+  bumpScale: 0.055,
+  roughness: 0.96
 })
 ```
 
@@ -114,13 +116,13 @@ En varios casos se usan `CanvasTexture` para generar patrones por codigo, evitan
 
 El requisito de relieve se cumple con materiales que usan mapas de relieve (`bumpMap`).
 
-El abanico aplica relieve en la tela para simular una superficie con trama. El rebujito tambien usa relieve en el liquido para dar una sensacion de burbujas o irregularidad.
+El suelo de albero aplica relieve procedural usando la misma textura generada por canvas como `bumpMap`. Asi el terreno no queda completamente plano y aprovecha la luz direccional de la escena.
 
 Esto permite que el material no sea solo plano, sino que reaccione mejor a la iluminacion.
 
 ### Materiales transparentes
 
-El rebujito incluye un vaso transparente. Para ello se usa un material fisico con transparencia, rugosidad y transmision.
+El rebujito incluye un vaso transparente. Para ello se usa un material con transparencia, doble cara y escritura de profundidad desactivada.
 
 El objetivo es que el vaso se perciba como cristal y que pueda verse el contenido interior.
 
@@ -133,7 +135,7 @@ La escena tiene luces de distintos tipos y colores, cumpliendo los requisitos mi
 La luz ambiental ilumina toda la escena de forma general:
 
 ```js
-this.ambientLight = new THREE.AmbientLight(0xffffff, 0.42)
+this.ambientLight = new THREE.AmbientLight(0xffffff, 0.38)
 ```
 
 Se usa para que las zonas en sombra no queden completamente negras.
@@ -159,7 +161,7 @@ Se configura tambien el tamano del mapa de sombras y los limites de la camara de
 Se anade una `PointLight` azulada:
 
 ```js
-this.fillLight = new THREE.PointLight(0x5fb7ff, 120)
+this.fillLight = new THREE.PointLight(0x5fb7ff, 1.15, 13, 1.7)
 ```
 
 Esta luz aporta contraste de color respecto a la luz principal calida.
@@ -169,14 +171,14 @@ Esta luz aporta contraste de color respecto a la luz principal calida.
 La escena incluye una luz puntual dinamica:
 
 ```js
-this.dynamicLight = new THREE.PointLight(0xff6a3d, 85, 9, 1.6)
+this.dynamicLight = new THREE.PointLight(0xff6a3d, 1.25, 9, 1.6)
 ```
 
 Esta luz cambia durante el juego. En cada frame se actualizan su color e intensidad:
 
 ```js
 this.dynamicLight.color.setHSL(hue, 0.85, 0.55)
-this.dynamicLight.intensity = 70 + Math.sin(this.lightTime * 1.4) * 18
+this.dynamicLight.intensity = 1.25 + Math.sin(this.lightTime * 1.4) * 0.35
 ```
 
 El color cambia suavemente usando HSL y la intensidad oscila con una funcion seno. Con esto se cumple el requisito de tener al menos una luz que cambie en el juego.

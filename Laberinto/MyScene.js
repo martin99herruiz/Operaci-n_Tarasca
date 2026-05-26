@@ -138,6 +138,9 @@ class MyScene extends THREE.Scene {
   }
 
   createLights() {
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.38)
+    this.add(this.ambientLight)
+
     this.sunLight = new THREE.DirectionalLight(0xfff4df, 1.35)
     this.sunLight.position.set(6, 14, 5)
     this.sunLight.castShadow = true
@@ -149,6 +152,14 @@ class MyScene extends THREE.Scene {
     this.sunLight.shadow.camera.top = 12
     this.sunLight.shadow.camera.bottom = -12
     this.add(this.sunLight)
+
+    this.fillLight = new THREE.PointLight(0x5fb7ff, 1.15, 13, 1.7)
+    this.fillLight.position.set(-5.5, 2.4, -4.5)
+    this.add(this.fillLight)
+
+    this.dynamicLight = new THREE.PointLight(0xff6a3d, 1.25, 9, 1.6)
+    this.dynamicLight.position.set(0, 2.1, -2.5)
+    this.add(this.dynamicLight)
   }
 
   createAlberoTexture() {
@@ -190,6 +201,8 @@ class MyScene extends THREE.Scene {
     const materialGround = new THREE.MeshStandardMaterial({
       color: 0xd19a44,
       map: alberoTexture,
+      bumpMap: alberoTexture,
+      bumpScale: 0.055,
       emissive: 0x6b3f12,
       emissiveIntensity: 0.08,
       roughness: 0.96,
@@ -910,6 +923,13 @@ class MyScene extends THREE.Scene {
   updateLights(delta) {
     this.lightTime += delta
     this.updateSky(delta)
+
+    if (this.dynamicLight) {
+      const hue = (0.04 + this.lightTime * 0.05) % 1
+      this.dynamicLight.color.setHSL(hue, 0.85, 0.55)
+      this.dynamicLight.intensity = 1.25 + Math.sin(this.lightTime * 1.4) * 0.35
+    }
+
     if (this.feriaExtras) {
       this.feriaExtras.update(this.lightTime, this.skyProgress)
     }
@@ -964,6 +984,9 @@ class MyScene extends THREE.Scene {
       THREE.MathUtils.lerp(14, 2.5, progress),
       THREE.MathUtils.lerp(5, -4, progress)
     )
+
+    this.ambientLight.intensity = THREE.MathUtils.lerp(0.38, 0.18, progress)
+    this.fillLight.intensity = THREE.MathUtils.lerp(1.15, 1.85, progress)
   }
 
   drawSkyTexture(progress) {

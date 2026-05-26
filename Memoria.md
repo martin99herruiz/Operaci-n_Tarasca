@@ -223,16 +223,16 @@ Los materiales basados en color aparecen en elementos como los muros del laberin
 
 Los materiales de los pick-ups se han asignado segun el tipo de objeto que representan:
 
-- Abanico: las varillas usan textura de madera y la tela usa textura decorativa, con un mapa de relieve para simular el tejido.
-- Farolillo/llave: la llave usa un material metalico de laton envejecido y el farolillo usa papel rojo con lunares blancos y relieve de pliegues.
-- Castañuelas: las conchas usan textura de madera con relieve, para reforzar la sensacion de pieza tallada.
-- Rebujito: el vaso usa material transparente de cristal, el liquido tiene color amarillento con relieve de burbujas, el limon tiene textura radial, la pajita usa franjas rojas y blancas, y los hielos usan material transparente.
+- Abanico: las varillas usan textura de madera y la tela usa textura decorativa.
+- Farolillo/llave: la llave usa un material de laton envejecido y el farolillo usa papel rojo con lunares blancos.
+- Castañuelas: las conchas usan textura de madera para reforzar la sensacion de pieza tallada.
+- Rebujito: el vaso usa material transparente de cristal, el liquido tiene color amarillento, el limon tiene textura radial, la pajita usa franjas rojas y blancas, y los hielos usan material transparente.
 
-Tambien hay texturas en el canal de relieve. El abanico utiliza `bumpMap` para dar mas detalle a la tela y el rebujito usa un mapa de relieve generado por codigo para simular pequenas burbujas o irregularidades en el liquido.
+Tambien hay texturas en el canal de relieve. El suelo de albero utiliza `bumpMap` con una textura procedural generada por canvas para que el terreno no quede completamente plano.
 
 En algunos casos se usa `RepeatWrapping` para repetir la textura y evitar que quede estirada sobre la geometria.
 
-El vaso del rebujito usa un material fisico transparente (`MeshPhysicalMaterial`) para representar el cristal. Este material permite jugar con transparencia, rugosidad, transmision y grosor.
+El vaso del rebujito usa un material transparente de doble cara para representar el cristal y permitir ver el contenido interior.
 
 ## 13. Luces
 
@@ -255,7 +255,7 @@ La luz cambiante se actualiza en cada frame. Su color se modifica con `setHSL()`
 
 ```js
 this.dynamicLight.color.setHSL(hue, 0.85, 0.55);
-this.dynamicLight.intensity = 70 + Math.sin(this.lightTime * 1.4) * 18;
+this.dynamicLight.intensity = 1.25 + Math.sin(this.lightTime * 1.4) * 0.35;
 ```
 
 Con esto se cumple el requisito de tener luces de diferentes colores y al menos una luz que cambie durante el juego.
