@@ -5,7 +5,7 @@ import { PointerLockControls } from '../libs/PointerLockControls.js'
 
 import { Abanico } from '../pick-ups/Abanico.js?v=materiales-2'
 import { Farolillo } from '../pick-ups/Farolillo.js?v=materiales-2'
-import { Castanuelas } from '../pick-ups/Castanuelas.js?v=materiales-2'
+import { Castanuelas } from '../pick-ups/Castanuelas.js?v=materiales-3'
 import { Rebujito } from '../pick-ups/Rebujito.js?v=materiales-2'
 
 import { Laberinto } from './Laberinto.js?v=feria-casetas-29'

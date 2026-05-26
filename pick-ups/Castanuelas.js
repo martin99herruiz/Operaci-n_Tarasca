@@ -18,13 +18,15 @@ class Castanuelas extends THREE.Object3D {
         // =====================================================
         const texturaMadera = this.crearTexturaMaderaSuave();
         const relieveMadera = this.crearRelieveMadera();
-        this.materialMadera = new THREE.MeshStandardMaterial({
-            color: 0x9a6634,
+        this.materialMadera = new THREE.MeshPhysicalMaterial({
+            color: 0xffd1a0,
             map: texturaMadera,
             bumpMap: relieveMadera,
-            bumpScale: 0.045,
-            roughness: 0.68,
+            bumpScale: 0.06,
+            roughness: 0.38,
             metalness: 0.0,
+            clearcoat: 0.42,
+            clearcoatRoughness: 0.28,
             side: THREE.DoubleSide
         });
 
@@ -553,33 +555,64 @@ class Castanuelas extends THREE.Object3D {
         const ctx = canvas.getContext('2d');
 
         const base = ctx.createLinearGradient(0, 0, 512, 512);
-        base.addColorStop(0, '#9a6330');
-        base.addColorStop(0.5, '#b1783f');
-        base.addColorStop(1, '#7e4b24');
+        base.addColorStop(0, '#6b2d12');
+        base.addColorStop(0.32, '#b86b2e');
+        base.addColorStop(0.58, '#e0a15a');
+        base.addColorStop(1, '#4a1d0b');
         ctx.fillStyle = base;
         ctx.fillRect(0, 0, 512, 512);
 
-        for (let i = 0; i < 42; i++) {
-            const y = Math.random() * 512;
-            ctx.strokeStyle = `rgba(67, 34, 12, ${0.035 + Math.random() * 0.045})`;
-            ctx.lineWidth = 1 + Math.random() * 2;
+        for (let i = 0; i < 72; i++) {
+            const y = -40 + Math.random() * 592;
+            const darkLine = Math.random() > 0.28;
+            ctx.strokeStyle = darkLine
+                ? `rgba(49, 18, 7, ${0.09 + Math.random() * 0.11})`
+                : `rgba(255, 194, 119, ${0.08 + Math.random() * 0.08})`;
+            ctx.lineWidth = 0.7 + Math.random() * 2.4;
 
             ctx.beginPath();
             ctx.moveTo(0, y);
 
-            for (let x = 0; x <= 512; x += 24) {
+            for (let x = 0; x <= 512; x += 18) {
                 ctx.lineTo(
                     x,
-                    y + Math.sin(x * 0.025 + i) * 10
+                    y + Math.sin(x * 0.026 + i * 0.57) * 9 + Math.sin(x * 0.073 + i) * 4
                 );
             }
 
             ctx.stroke();
         }
 
+        for (let i = 0; i < 18; i++) {
+            const x = 80 + Math.random() * 360;
+            const y = 45 + Math.random() * 420;
+            ctx.strokeStyle = `rgba(52, 20, 8, ${0.08 + Math.random() * 0.08})`;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.ellipse(
+                x,
+                y,
+                24 + Math.random() * 52,
+                5 + Math.random() * 12,
+                Math.random() * Math.PI,
+                0,
+                Math.PI * 2
+            );
+            ctx.stroke();
+        }
+
+        const shine = ctx.createLinearGradient(0, 0, 512, 0);
+        shine.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        shine.addColorStop(0.42, 'rgba(255, 220, 150, 0.14)');
+        shine.addColorStop(0.62, 'rgba(255, 255, 255, 0.04)');
+        shine.addColorStop(1, 'rgba(60, 20, 6, 0.12)');
+        ctx.fillStyle = shine;
+        ctx.fillRect(0, 0, 512, 512);
+
         const textura = new THREE.CanvasTexture(canvas);
-        textura.wrapS = THREE.ClampToEdgeWrapping;
-        textura.wrapT = THREE.ClampToEdgeWrapping;
+        textura.wrapS = THREE.RepeatWrapping;
+        textura.wrapT = THREE.RepeatWrapping;
+        textura.repeat.set(1.4, 1.4);
         textura.colorSpace = THREE.SRGBColorSpace;
         return textura;
     }
@@ -593,16 +626,19 @@ class Castanuelas extends THREE.Object3D {
         ctx.fillStyle = '#808080';
         ctx.fillRect(0, 0, 512, 512);
 
-        for (let i = 0; i < 36; i++) {
-            const x = Math.random() * 512;
-            ctx.strokeStyle = `rgba(255, 255, 255, ${0.035 + Math.random() * 0.05})`;
-            ctx.lineWidth = 1;
+        for (let i = 0; i < 58; i++) {
+            const yBase = Math.random() * 512;
+            const raised = Math.random() > 0.45;
+            ctx.strokeStyle = raised
+                ? `rgba(255, 255, 255, ${0.05 + Math.random() * 0.08})`
+                : `rgba(35, 35, 35, ${0.04 + Math.random() * 0.07})`;
+            ctx.lineWidth = 0.8 + Math.random() * 1.4;
 
             ctx.beginPath();
-            ctx.moveTo(x, 0);
+            ctx.moveTo(0, yBase);
 
-            for (let y = 0; y <= 512; y += 18) {
-                ctx.lineTo(x + Math.sin(y * 0.035 + i) * 16, y);
+            for (let x = 0; x <= 512; x += 18) {
+                ctx.lineTo(x, yBase + Math.sin(x * 0.04 + i) * 8);
             }
 
             ctx.stroke();
