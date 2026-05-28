@@ -66,6 +66,15 @@ class MyScene extends THREE.Scene {
     }
 
     this.background = new THREE.Color(0x77b8df)
+
+    this.objetoMiradoActual = null; 
+    this.raycasterPicking = new THREE.Raycaster();
+    this.raycasterPicking.far = 3.5;
+
+    this.borracheraActiva = false;   
+    this.tiempoBorrachera = 0;      
+    this.duracionBorrachera = 6.0;
+
     this.fog = new THREE.Fog(0xf3c36f, 13, 36)
 
     // La escena se construye en varias funciones para separar camaras, luces,
@@ -163,58 +172,73 @@ class MyScene extends THREE.Scene {
     this.add(this.dynamicLight)
   }
 
-  createAlberoTexture() {
-    const size = 256
-    const canvas = document.createElement('canvas')
-    canvas.width = size
-    canvas.height = size
+createAlberoTexture() {
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
 
-    const context = canvas.getContext('2d')
-    context.fillStyle = '#c68f3b'
-    context.fillRect(0, 0, size, size)
+    context.fillStyle = '#8080ff'; 
+    context.fillRect(0, 0, size, size);
 
-    const imageData = context.getImageData(0, 0, size, size)
-    const data = imageData.data
+    const imageData = context.getImageData(0, 0, size, size);
+    const data = imageData.data;
 
     for (let i = 0; i < data.length; i += 4) {
-      const noise = Math.random() * 38 - 19
-      const speckle = Math.random() > 0.965 ? Math.random() * 38 : 0
+      const nx = Math.random() * 80 - 40;
+      const ny = Math.random() * 80 - 40;
 
-      data[i] = THREE.MathUtils.clamp(data[i] + noise + speckle, 0, 255)
-      data[i + 1] = THREE.MathUtils.clamp(data[i + 1] + noise * 0.75 + speckle * 0.8, 0, 255)
-      data[i + 2] = THREE.MathUtils.clamp(data[i + 2] + noise * 0.35, 0, 255)
+      data[i] = THREE.MathUtils.clamp(data[i] + nx, 0, 255);     // Canal R
+      data[i + 1] = THREE.MathUtils.clamp(data[i + 1] + ny, 0, 255); // Canal G
     }
 
-    context.putImageData(imageData, 0, 0)
+    context.putImageData(imageData, 0, 0);
 
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.wrapS = THREE.RepeatWrapping
-    texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(18, 18)
-    texture.colorSpace = THREE.SRGBColorSpace
-
-    return texture
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(18, 18);
+    return texture;
   }
 
-  createGround() {
-    const alberoTexture = this.createAlberoTexture()
+createGround() {
+    const size = 256;
+    const cColor = document.createElement('canvas');
+    cColor.width = cColor.height = size;
+    const ctx = cColor.getContext('2d');
+    ctx.fillStyle = '#c68f3b';
+    ctx.fillRect(0, 0, size, size);
+    const imgData = ctx.getImageData(0, 0, size, size);
+    for (let i = 0; i < imgData.data.length; i += 4) {
+      const n = Math.random() * 30 - 15;
+      imgData.data[i] = THREE.MathUtils.clamp(imgData.data[i]+n, 0, 255);
+      imgData.data[i+1] = THREE.MathUtils.clamp(imgData.data[i+1]+n*0.7, 0, 255);
+      imgData.data[i+2] = THREE.MathUtils.clamp(imgData.data[i+2]+n*0.3, 0, 255);
+    }
+    ctx.putImageData(imgData, 0, 0);
+    const alberoColor = new THREE.CanvasTexture(cColor);
+    alberoColor.wrapS = alberoColor.wrapT = THREE.RepeatWrapping;
+    alberoColor.repeat.set(18, 18);
+    alberoColor.colorSpace = THREE.SRGBColorSpace;
+
+    const alberoNormal = this.createAlberoTexture();
 
     const materialGround = new THREE.MeshStandardMaterial({
-      color: 0xd19a44,
-      map: alberoTexture,
-      bumpMap: alberoTexture,
-      bumpScale: 0.055,
+      map: alberoColor,
+      normalMap: alberoNormal,
+      normalScale: new THREE.Vector2(3.5, 3.5), // Escala de fuerza X e Y exagerada
       emissive: 0x6b3f12,
       emissiveIntensity: 0.08,
-      roughness: 0.96,
+      roughness: 0.92,
       metalness: 0.0
-    })
+    });
 
-    this.ground = new THREE.Mesh(new THREE.PlaneGeometry(36, 44), materialGround)
-    this.ground.rotation.x = -Math.PI / 2
-    this.ground.position.set(0, -0.01, -4.5)
-    this.ground.receiveShadow = true
-    this.add(this.ground)
+    this.ground = new THREE.Mesh(new THREE.PlaneGeometry(36, 44), materialGround);
+    this.ground.rotation.x = -Math.PI / 2;
+    this.ground.position.set(0, -0.01, -4.5);
+    this.ground.receiveShadow = true;
+    this.add(this.ground);
   }
 
   createDoor() {
@@ -539,9 +563,79 @@ class MyScene extends THREE.Scene {
     return false;
   }
 
+  checkPickingHighlight() {
+    // 1. Apuntamos el raycaster hacia el centro exacto de la pantalla (coordenadas 0,0)
+    this.raycasterPicking.setFromCamera(this.centerPointer, this.camera);
+
+    // 2. Buscamos colisiones en nuestro array de pick-ups interactuables
+    const intersecciones = this.raycasterPicking.intersectObjects(this.pickups, true);
+
+    if (intersecciones.length > 0) {
+      const objetoImpactado = intersecciones[0].object;
+
+      // 3. Escalamos en el árbol jerárquico hasta encontrar el nodo raíz que tenga 'recogible'
+      let nodoEstructura = objetoImpactado;
+      while (nodoEstructura && !nodoEstructura.userData.recogible) {
+        nodoEstructura = nodoEstructura.parent;
+      }
+
+      // 4. Si es un pick-up válido y no lo hemos recogido todavía...
+      if (nodoEstructura && nodoEstructura.userData.recogible && !nodoEstructura.recogido) {
+        
+        // Si el objeto es distinto al que mirábamos en el frame anterior:
+        if (this.objetoMiradoActual !== nodoEstructura) {
+          // Apagamos el brillo del objeto viejo (si había uno)
+          this.apagarBrilloObjeto(this.objetoMiradoActual);
+          
+          // Guardamos y encendemos el nuevo objeto
+          this.objetoMiradoActual = nodoEstructura;
+          this.encenderBrilloObjeto(this.objetoMiradoActual);
+        }
+        return; // Salimos de la función (el objeto ya está brillando)
+      }
+    }
+
+    // 5. Si el rayo no choca con nada interactuable pero teníamos un objeto encendido, lo apagamos
+    if (this.objetoMiradoActual) {
+      this.apagarBrilloObjeto(this.objetoMiradoActual);
+      this.objetoMiradoActual = null;
+    }
+  }
+
+  encenderBrilloObjeto(objeto) {
+    if (!objeto) return;
+
+    objeto.traverse((nodo) => {
+      if (nodo.isMesh && nodo.material) {
+        // Guardamos el color emissive original en userData para no perderlo
+        if (nodo.userData.emissiveOriginal === undefined) {
+          nodo.userData.emissiveOriginal = nodo.material.emissive.getHex();
+        }
+        // Aplicamos un brillo dorado/amarillo suave estilo bombilla de feria
+        nodo.material.emissive.setHex(0x443311);
+      }
+    });
+  }
+
+  apagarBrilloObjeto(objeto) {
+    if (!objeto) return;
+
+    objeto.traverse((nodo) => {
+      if (nodo.isMesh && nodo.material && nodo.userData.emissiveOriginal !== undefined) {
+        // Restauramos el color original del material
+        nodo.material.emissive.setHex(nodo.userData.emissiveOriginal);
+      }
+    });
+  }
+
   recogerObjeto(objeto) {
-    objeto.recogido = true;
-    objeto.visible = false; // Lo hacemos invisible
+    if (typeof objeto.recoger === 'function') {
+      objeto.recoger();
+    } else {
+      // Si no, aplica la recogida estándar para el resto de pick-ups
+      objeto.recogido = true;
+      objeto.visible = false;
+    }
     
     // Sumamos al contador interno y actualizamos el texto de arriba a la izquierda
     this.registrarPickupRecogido(); 
@@ -550,6 +644,11 @@ class MyScene extends THREE.Scene {
     
     // Opcional: imprimir en consola para depurar
     console.log("Pickups recogidos:", this.pickupsRecogidosActuales());
+  }
+
+  activarEfectoBorrachera() {
+    this.borracheraActiva = true;
+    this.tiempoBorrachera = 0;
   }
 
   configureTopCamera() {
@@ -925,7 +1024,7 @@ class MyScene extends THREE.Scene {
   }
 
   updateAnimatedObjects(delta) {
-    this.animatedObjects.forEach((object) => object.update(delta))
+    this.animatedObjects.forEach((object) => object.update(delta, this.camera.position))
   }
 
   updateLights(delta) {
@@ -1153,6 +1252,8 @@ class MyScene extends THREE.Scene {
   update() {
     const delta = this.clock.getDelta()
 
+    this.checkPickingHighlight();
+
     // Bucle principal de juego: entrada, animaciones, HUD y render.
     this.updatePlayer(delta)
     this.updateDoor(delta)
@@ -1160,6 +1261,39 @@ class MyScene extends THREE.Scene {
     this.updateLights(delta)
     this.updatePlayerMarker()
     this.updateHud()
+
+    // =====================================================
+    // NUEVO: EFECTO VISUAL PROPIEDAD DE LA BORRACHERA (L4 y L5)
+    // =====================================================
+    if (this.borracheraActiva) {
+      const segundos = delta > 10 ? delta / 1000 : delta;
+      this.tiempoBorrachera += segundos;
+
+      if (this.tiempoBorrachera < this.duracionBorrachera) {
+        // Mientras dure el efecto, balanceamos la cámara
+        this.camera.rotation.z = Math.sin(this.tiempoBorrachera * 3.5) * 0.08; 
+        
+        if (this.camera.isPerspectiveCamera) {
+          this.camera.fov = 65 + Math.sin(this.tiempoBorrachera * 2.0) * 8;
+          this.camera.updateProjectionMatrix();
+        }
+      } else {
+        // =====================================================
+        // ¡FIN DEL EFECTO!: RESETEO SEGURO Y LIMPIO
+        // =====================================================
+        this.borracheraActiva = false;
+        
+        // CORRECCIÓN: Forzamos matemáticamente los 0 radianes en Z
+        // para asegurar que el horizonte vuelva a estar completamente recto
+        this.camera.rotation.z = 0; 
+        
+        if (this.camera.isPerspectiveCamera) {
+          this.camera.fov = 65; // Tu FOV base de la escena
+          this.camera.updateProjectionMatrix();
+        }
+      }
+    }
+
     this.renderScene()
 
     requestAnimationFrame(() => this.update())

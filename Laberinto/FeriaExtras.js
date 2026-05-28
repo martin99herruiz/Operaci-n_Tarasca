@@ -8,8 +8,8 @@ class FeriaExtras extends THREE.Group {
     this.laberinto = laberinto
     this.garlandBulbs = []
     this.garlandPointLights = []
-    this.garlandLightStep = 3
-    this.maxGarlandPointLights = 120
+    this.garlandLightStep = 22
+    this.maxGarlandPointLights = 38
     this.garlandCableMaterial = new THREE.LineBasicMaterial({ color: 0x1c1510 })
     this.garlandBulbGeometry = new THREE.SphereGeometry(0.055, 12, 8)
     this.garlandBulbMaterials = [
@@ -455,7 +455,7 @@ class FeriaExtras extends THREE.Group {
     this.garlandBulbs.push(bulb)
 
     if (this.garlandPointLights.length < this.maxGarlandPointLights && index % this.garlandLightStep === 0) {
-      const light = new THREE.PointLight(material.color, 0.08, 5.6, 1.15)
+      const light = new THREE.PointLight(material.color, 0.5, 12.0, 0.75)
       light.position.copy(position)
       this.add(light)
       this.garlandPointLights.push(light)

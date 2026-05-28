@@ -41,9 +41,9 @@ class Farolillo extends THREE.Object3D {
         // Papel de farolillo: rojo con lunares y relieve suave de pliegues.
         this.materialPapel = new THREE.MeshStandardMaterial({
             map: texturaPapel,
-            bumpMap: relievePapel,
-            bumpScale: 0.045,
-            roughness: 0.78,
+            normalMap: relievePapel,
+            normalScale: new THREE.Vector2(3.5, 3.5), 
+            roughness: 0.72,
             metalness: 0.0,
             side: THREE.DoubleSide
         });
@@ -220,22 +220,35 @@ class Farolillo extends THREE.Object3D {
         canvas.height = 512;
         const ctx = canvas.getContext('2d');
 
-        ctx.fillStyle = '#808080';
+        // Color base neutro de un mapa de normales (superficie que mira al frente)
+        ctx.fillStyle = '#8080ff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         const anchoCol = canvas.width / this.pliegues;
-        for (let col = 0; col <= this.pliegues; col++) {
+        
+        for (let col = 0; col < this.pliegues; col++) {
             const x = anchoCol * col;
-            const grad = ctx.createLinearGradient(x - anchoCol * 0.5, 0, x + anchoCol * 0.5, 0);
-            grad.addColorStop(0, '#707070');
-            grad.addColorStop(0.5, '#9a9a9a');
-            grad.addColorStop(1, '#707070');
-            ctx.fillStyle = grad;
-            ctx.fillRect(x - anchoCol * 0.5, 0, anchoCol, canvas.height);
+
+            // EXAGERACIÓN ACORDEÓN:
+            // Dividimos cada sección vertical en dos mitades perfectas para simular el pliegue vivo.
+            
+            // Mitad izquierda del pliegue: Inclinación X- (Buscamos un tono hacia el Magenta/Rojo)
+            const gradIzq = ctx.createLinearGradient(x, 0, x + anchoCol * 0.5, 0);
+            gradIzq.addColorStop(0, '#8080ff');
+            gradIzq.addColorStop(1, '#c850ff'); // Desviación fuerte en el canal Rojo
+            ctx.fillStyle = gradIzq;
+            ctx.fillRect(x, 0, anchoCol * 0.5, canvas.height);
+
+            // Mitad derecha del pliegue: Inclinación X+ (Buscamos un tono hacia el Cian/Verde)
+            const gradDer = ctx.createLinearGradient(x + anchoCol * 0.5, 0, x + anchoCol, 0);
+            gradDer.addColorStop(0, '#38b0ff'); // Desviación fuerte en el canal Verde
+            gradDer.addColorStop(1, '#8080ff');
+            ctx.fillStyle = gradDer;
+            ctx.fillRect(x + anchoCol * 0.5, 0, anchoCol * 0.5, canvas.height);
         }
 
         const textura = new THREE.CanvasTexture(canvas);
-        textura.wrapS = THREE.RepeatWrapping;
+        textura.wrapS = THREE.RepeatWrapping; // Permitimos la repetición horizontal fluida
         return textura;
     }
 

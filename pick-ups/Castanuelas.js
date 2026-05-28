@@ -21,12 +21,12 @@ class Castanuelas extends THREE.Object3D {
         this.materialMadera = new THREE.MeshPhysicalMaterial({
             color: 0xffd1a0,
             map: texturaMadera,
-            bumpMap: relieveMadera,
-            bumpScale: 0.06,
-            roughness: 0.38,
+            normalMap: relieveMadera,
+            normalScale: new THREE.Vector2(3.0, 3.0), 
+            roughness: 0.35,
             metalness: 0.0,
-            clearcoat: 0.42,
-            clearcoatRoughness: 0.28,
+            clearcoat: 0.6, 
+            clearcoatRoughness: 0.2,
             side: THREE.DoubleSide
         });
 
@@ -548,6 +548,7 @@ class Castanuelas extends THREE.Object3D {
 
         return grupo;
     }
+    
     crearTexturaMaderaSuave() {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
@@ -623,30 +624,30 @@ class Castanuelas extends THREE.Object3D {
         canvas.height = 512;
         const ctx = canvas.getContext('2d');
 
-        ctx.fillStyle = '#808080';
+        // Color neutro del Normal Map
+        ctx.fillStyle = '#8080ff';
         ctx.fillRect(0, 0, 512, 512);
 
-        for (let i = 0; i < 58; i++) {
+        // Creamos las vetas onduladas usando perturbaciones de color en los ejes RGB
+        for (let i = 0; i < 60; i++) {
             const yBase = Math.random() * 512;
-            const raised = Math.random() > 0.45;
-            ctx.strokeStyle = raised
-                ? `rgba(255, 255, 255, ${0.05 + Math.random() * 0.08})`
-                : `rgba(35, 35, 35, ${0.04 + Math.random() * 0.07})`;
-            ctx.lineWidth = 0.8 + Math.random() * 1.4;
+            const lado = Math.random() > 0.5;
+            
+            // Unas vetas tiran hacia el espectro rojo (X+) y otras hacia el verde (Y+)
+            ctx.strokeStyle = lado ? 'rgba(180, 96, 255, 0.4)' : 'rgba(80, 160, 255, 0.4)';
+            ctx.lineWidth = 2 + Math.random() * 4;
 
             ctx.beginPath();
             ctx.moveTo(0, yBase);
-
-            for (let x = 0; x <= 512; x += 18) {
-                ctx.lineTo(x, yBase + Math.sin(x * 0.04 + i) * 8);
+            for (let x = 0; x <= 512; x += 15) {
+                ctx.lineTo(x, yBase + Math.sin(x * 0.04 + i) * 10);
             }
-
             ctx.stroke();
         }
 
         const textura = new THREE.CanvasTexture(canvas);
-        textura.wrapS = THREE.ClampToEdgeWrapping;
-        textura.wrapT = THREE.ClampToEdgeWrapping;
+        textura.wrapS = THREE.RepeatWrapping;
+        textura.wrapT = THREE.RepeatWrapping;
         return textura;
     }
 

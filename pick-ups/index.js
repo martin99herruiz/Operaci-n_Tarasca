@@ -57,6 +57,13 @@ function crearRenderer() {
 function crearEscena() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf4f4f4);
+
+    const luzAmbiental = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(luzAmbiental);
+
+    const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.8);
+    luzDireccional.position.set(5, 8, 5); 
+    scene.add(luzDireccional);
 }
 
 function crearCamara() {

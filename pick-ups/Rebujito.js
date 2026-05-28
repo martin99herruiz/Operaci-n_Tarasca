@@ -51,12 +51,11 @@ class Rebujito extends THREE.Object3D {
 
         this.materialLiquido = new THREE.MeshStandardMaterial({
             color: 0xf0d86a,
-            bumpMap: this.texturaBurbujas,
-            bumpScale: 0.045,
-            transparent: true,
-            opacity: 0.82,
-            roughness: 0.34,
-            metalness: 0.0
+            normalMap: this.texturaBurbujas,
+            normalScale: new THREE.Vector2(5.0, 5.0), 
+            opacity: 0.85,
+            roughness: 0.05, 
+            metalness: 0.1   
         });
 
         this.materialLimon = new THREE.MeshStandardMaterial({
@@ -97,27 +96,38 @@ class Rebujito extends THREE.Object3D {
         canvas.height = 256;
         const ctx = canvas.getContext('2d');
 
-        ctx.fillStyle = '#888888'; // Gris neutro para el Bump Map.
+        // Fondo neutro oficial de Normal Map
+        ctx.fillStyle = '#8080ff'; 
         ctx.fillRect(0, 0, 256, 256);
 
-        for (let i = 0; i < 60; i++) {
-            const x = Math.random() * 256;
-            const y = Math.random() * 256;
-            const r = Math.random() * 2 + 1;
+        // Generamos las burbujas esféricas
+        for (let i = 0; i < 90; i++) {
+            const cx = Math.random() * 256;
+            const cy = Math.random() * 256;
+            const r = Math.random() * 3 + 2; // Tamaño ideal para el cilindro
 
-            const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-            grad.addColorStop(0, '#ffffff'); // Elevación máxima.
-            grad.addColorStop(1, '#888888'); // Base plana.
+            for (let y = -r; y <= r; y++) {
+                for (let x = -r; x <= r; x++) {
+                    const distSq = x * x + y * y;
+                    if (distSq > r * r) continue; 
 
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, Math.PI * 2);
-            ctx.fill();
+                    const z = Math.sqrt(r * r - distSq);
+                    
+                    // Pasamos los vectores al rango [0, 255] para RGB
+                    const nx = ((x / r) * 0.5 + 0.5) * 255;
+                    const ny = ((y / r) * 0.5 + 0.5) * 255;
+                    const nz = (z / r) * 255;
+
+                    ctx.fillStyle = `rgb(${Math.round(nx)}, ${Math.round(ny)}, ${Math.round(nz)})`;
+                    // CORREGIDO: Usamos canvas.height en lugar de ctx.height
+                    ctx.fillRect(cx + x, canvas.height - (cy + y), 1, 1);
+                }
+            }
         }
 
         const textura = new THREE.CanvasTexture(canvas);
         textura.wrapS = textura.wrapT = THREE.RepeatWrapping;
-        textura.repeat.set(2, 2);
+        textura.repeat.set(2, 2); // Un poco más repetido para aumentar la cantidad visual
         return textura;
     }
 
@@ -412,6 +422,16 @@ class Rebujito extends THREE.Object3D {
                 hieloB.position.x += direccionX * correccion;
                 hieloB.position.z += direccionZ * correccion;
             }
+        }
+    }
+    recoger() {
+        this.recogido = true;
+        this.visible = false; // Hacemos desaparecer el vaso de albero
+
+        // Accedemos a la instancia global de MyScene que guardaste en el objeto window
+        if (window.gameScene && typeof window.gameScene.activarEfectoBorrachera === 'function') {
+            // ¡Activamos el efecto!
+            window.gameScene.activarEfectoBorrachera();
         }
     }
 }
