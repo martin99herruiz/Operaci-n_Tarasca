@@ -829,20 +829,6 @@ class FeriaExtras extends THREE.Group {
       light.intensity = lightIntensity
     })
 
-    this.flamencoFigures.forEach((figure) => {
-      const phase = figure.userData.swingPhase
-      const sway = Math.sin(lightTime * 1.65 + phase)
-      figure.rotation.y = figure.userData.baseRotationY + sway * figure.userData.swingIntensity
-      figure.position.y = figure.userData.baseY + Math.sin(lightTime * 2.7 + phase) * 0.015
-
-      if (figure.userData.leftArm && figure.userData.rightArm) {
-        const leftBase = figure.userData.leftArmBaseRotation ?? 0.32
-        const rightBase = figure.userData.rightArmBaseRotation ?? -0.32
-        const armSwingScale = figure.userData.armSwingScale ?? 0.14
-        figure.userData.leftArm.rotation.z = leftBase + sway * armSwingScale
-        figure.userData.rightArm.rotation.z = rightBase - sway * armSwingScale
-      }
-    })
   }
 }
 

@@ -23,15 +23,20 @@ class MyScene extends THREE.Scene {
     this.playerHeight = 1.25
     this.playerRadius = 0.28
     this.interactionDistance = 3.0
+    this.pickupTeleportDistance = 1.35
+    this.doorTeleportDistance = 4.8
     this.minCameraFov = 35
     this.maxCameraFov = 80
+    this.defaultCameraFov = this.maxCameraFov
     this.zoomWheelSensitivity = 0.035
     this.totalPickups = 4
     this.pickupsRecogidos = 0
     this.pickups = []
+    this.pickupMinimapMarkers = []
     this.pickupMazeScale = 0.35
     this.pickupVisualCenterHeight = 1.05
     this.pickupTeleportIndex = 0
+    this.pickupMinimapMarkerHeight = 3.05
     this.doorSurfaceOffset = 0.08
     this.animatedObjects = []
     this.lightTime = 0
@@ -62,6 +67,7 @@ class MyScene extends THREE.Scene {
 
     this.guiControls = {
       velocidad: 2.2,
+      sensibilidadRaton: 4.0,
       mostrarMiniMapa: true,
       luzBombillas: 1.0,
       musica: true,
@@ -109,7 +115,7 @@ class MyScene extends THREE.Scene {
   createCameras() {
     // Camara principal: vista en primera persona del jugador.
     this.camera = new THREE.PerspectiveCamera(
-      65,
+      this.defaultCameraFov,
       window.innerWidth / window.innerHeight,
       0.05,
       100
@@ -118,7 +124,7 @@ class MyScene extends THREE.Scene {
     this.add(this.camera)
 
     this.cameraControl = new PointerLockControls(this.camera, this.renderer.domElement)
-    this.cameraControl.pointerSpeed = 0.85
+    this.cameraControl.pointerSpeed = this.guiControls.sensibilidadRaton
     this.cameraControl.minPolarAngle = THREE.MathUtils.degToRad(18)
     this.cameraControl.maxPolarAngle = THREE.MathUtils.degToRad(162)
 
@@ -557,11 +563,41 @@ createGround() {
       depthTest: false
     })
 
-    this.playerMarker = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.5, 3), markerMaterial)
+    // Aumentar tamaño del marcador del jugador en el minimapa
+    this.playerMarker = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.8, 3), markerMaterial)
     this.playerMarker.position.y = 2.85
     this.playerMarker.renderOrder = 10
     this.playerMarker.layers.set(1)
     this.add(this.playerMarker)
+  }
+
+  createPickupMinimapMarker(pickup, index) {
+    // Marcador exclusivo del mini-mapa: no se renderiza en la camara principal.
+    const markerColors = [0xff4f8b, 0x58d7ff, 0x78ff74, 0xffb84d]
+    const markerMaterial = new THREE.MeshBasicMaterial({
+      color: markerColors[index % markerColors.length],
+      transparent: true,
+      opacity: 0.92,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    })
+    // Aumentar tamaño de los marcadores de pickups en el minimapa
+    const marker = new THREE.Mesh(new THREE.CircleGeometry(0.32, 18), markerMaterial)
+
+    marker.rotation.x = -Math.PI / 2
+    marker.position.set(
+      pickup.position.x,
+      this.pickupMinimapMarkerHeight,
+      pickup.position.z
+    )
+    marker.renderOrder = 20
+    marker.layers.set(1)
+    marker.userData.pickup = pickup
+
+    pickup.userData.minimapMarker = marker
+    this.pickupMinimapMarkers.push(marker)
+    this.add(marker)
   }
 
   setupMusic() {
@@ -636,6 +672,12 @@ createGround() {
 
     gui.add(this.guiControls, 'velocidad', 0.6, 5.0, 0.1)
       .name('Velocidad')
+
+    gui.add(this.guiControls, 'sensibilidadRaton', 0.5, 12.0, 0.1)
+      .name('Sensibilidad raton')
+      .onChange((valor) => {
+        this.cameraControl.pointerSpeed = valor
+      })
 
     gui.add(this.guiControls, 'mostrarMiniMapa')
       .name('Mini-mapa')
@@ -772,6 +814,7 @@ createGround() {
     
     this.add(objeto)                     // Para que se vean
     this.pickups.push(objeto)            // Para poder recogerlos con el Raycaster
+    this.createPickupMinimapMarker(objeto, this.pickups.length - 1)
     this.registerAnimatedObject(objeto)  // Para que se muevan solos (animación continua) 
     
     objeto.userData.recogible = true
@@ -889,6 +932,7 @@ createGround() {
     
     // Sumamos al contador interno y actualizamos el texto de arriba a la izquierda
     this.registrarPickupRecogido(); 
+    this.updatePickupMinimapMarkers()
     
     this.setHudMessage("¡Has recogido un pick-up!");
     
@@ -958,11 +1002,32 @@ createGround() {
     const doorCenter = new THREE.Vector3()
     this.doorVoid.getWorldPosition(doorCenter)
 
-    this.camera.position.set(
-      doorCenter.x + doorFront.x * 1.35,
-      this.playerHeight,
-      doorCenter.z + doorFront.z * 1.35
-    )
+    const playerPosition = new THREE.Vector3()
+    const distances = [this.doorTeleportDistance, 2.0, 1.65, 1.35]
+    let foundPosition = false
+
+    for (const distance of distances) {
+      playerPosition.set(
+        doorCenter.x + doorFront.x * distance,
+        this.playerHeight,
+        doorCenter.z + doorFront.z * distance
+      )
+
+      if (!this.model || this.model.puedeMoverseA(playerPosition, this.playerRadius)) {
+        foundPosition = true
+        break
+      }
+    }
+
+    if (!foundPosition) {
+      playerPosition.set(
+        doorCenter.x + doorFront.x * 1.35,
+        this.playerHeight,
+        doorCenter.z + doorFront.z * 1.35
+      )
+    }
+
+    this.camera.position.copy(playerPosition)
     this.camera.lookAt(doorCenter.x, this.playerHeight, doorCenter.z)
     this.setHudMessage('Jugador frente a la puerta')
   }
@@ -984,12 +1049,12 @@ createGround() {
     const targetCenter = new THREE.Vector3()
     box.getCenter(targetCenter)
 
-    const offsets = [
-      new THREE.Vector3(0, 0, 0.65),
-      new THREE.Vector3(0.65, 0, 0),
-      new THREE.Vector3(0, 0, -0.65),
-      new THREE.Vector3(-0.65, 0, 0)
-    ]
+    const offsets = [this.pickupTeleportDistance, 1.05, 0.8].flatMap((distance) => [
+      new THREE.Vector3(0, 0, distance),
+      new THREE.Vector3(distance, 0, 0),
+      new THREE.Vector3(0, 0, -distance),
+      new THREE.Vector3(-distance, 0, 0)
+    ])
     const playerPosition = new THREE.Vector3(targetCenter.x, this.playerHeight, targetCenter.z)
     let foundPosition = false
 
@@ -1450,6 +1515,13 @@ createGround() {
     this.playerMarker.rotation.y = Math.atan2(this.tmpDirection.x, this.tmpDirection.z)
   }
 
+  updatePickupMinimapMarkers() {
+    this.pickupMinimapMarkers.forEach((marker) => {
+      const pickup = marker.userData.pickup
+      marker.visible = Boolean(pickup && !(pickup.recogido || pickup.collected))
+    })
+  }
+
   updateHud() {
     const counter = document.getElementById('PickupCounter')
 
@@ -1586,7 +1658,11 @@ createGround() {
         this.camera.rotation.z = Math.sin(this.tiempoBorrachera * 3.5) * 0.08; 
         
         if (this.camera.isPerspectiveCamera) {
-          this.camera.fov = 65 + Math.sin(this.tiempoBorrachera * 2.0) * 8;
+          this.camera.fov = THREE.MathUtils.clamp(
+            this.defaultCameraFov + Math.sin(this.tiempoBorrachera * 2.0) * 8,
+            this.minCameraFov,
+            this.maxCameraFov
+          );
           this.camera.updateProjectionMatrix();
         }
       } else {
@@ -1600,7 +1676,7 @@ createGround() {
         this.camera.rotation.z = 0; 
         
         if (this.camera.isPerspectiveCamera) {
-          this.camera.fov = 65; // Tu FOV base de la escena
+          this.camera.fov = this.defaultCameraFov;
           this.camera.updateProjectionMatrix();
         }
       }
