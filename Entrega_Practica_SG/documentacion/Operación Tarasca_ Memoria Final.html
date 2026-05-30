@@ -1,9 +1,10 @@
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
+<!DOCTYPE html>
+<!-- saved from url=(0056)file:///Users/martinhernandezruiz/Downloads/preview.html -->
+<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Operación Tarasca: Memoria Final</title>
+  <!-- Versión adaptada para coincidir con el PDF v10: marco global, margen superior reducido y sin saltos forzados entre epígrafes. -->
 
   <style>
     /* =========================================================
@@ -37,7 +38,7 @@
 
     @page {
       size: A4;
-      margin: 15mm 16mm 17mm 16mm;
+      margin: 10mm 16mm 17mm 16mm;
     }
 
     html, body {
@@ -404,8 +405,7 @@
     }
 
     .pagebreak {
-      page-break-before: always;
-      break-before: page;
+      /* Clase conservada por compatibilidad, pero sin salto forzado */
     }
 
     .small {
@@ -421,6 +421,39 @@
       text-align: center;
       color: #777;
       font-size: 9pt;
+    }
+
+
+    /* ---------- Marco global para PDF ---------- */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 6mm;
+      left: 6mm;
+      right: 6mm;
+      bottom: 6mm;
+      border: 1.15pt solid rgba(143,31,22,0.55);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      top: 10mm;
+      left: 10mm;
+      right: 10mm;
+      bottom: 10mm;
+      border: 0.85pt solid rgba(210,161,92,0.55);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    @media screen {
+      body::before,
+      body::after {
+        display: none;
+      }
     }
 
     @media screen {
@@ -448,6 +481,7 @@
       #content { padding: 0; }
       .toc { padding: 0; }
       a { color: inherit; text-decoration: none; }
+      h2 { break-before: auto; page-break-before: auto; }
     }
   </style>
 </head>
@@ -459,7 +493,7 @@
     <div class="cv-title">OPERACIÓN TARASCA:<br>LABERINTO DE VOLANTES</div>
 
 
-    <img class="cv-logo" src="../UGR-MARCA-01-color.png" alt="Universidad de Granada">
+    <img class="cv-logo" src="file:///Users/martinhernandezruiz/UGR-MARCA-01-color.png" alt="Universidad de Granada">
 
     <div class="cv-info">
       <div><strong>Grado:</strong> Ingeniería Informática</div>
@@ -594,22 +628,22 @@ Fin de la partida</div>
 
     <div class="pickup-grid">
       <figure class="figure">
-        <img src="./capturas/abanico.png" alt="Abanico">
+        <img src="file:///Users/martinhernandezruiz/Downloads/capturas/abanico.png" alt="Abanico">
         <figcaption>Abanico articulado implementado como pick-up.</figcaption>
       </figure>
 
       <figure class="figure">
-        <img src="./capturas/castanuelas.png" alt="Castañuelas">
+        <img src="file:///Users/martinhernandezruiz/Downloads/capturas/castanuelas.png" alt="Castañuelas">
         <figcaption>Castañuelas con material de madera y cavidad interior.</figcaption>
       </figure>
 
       <figure class="figure">
-        <img src="./capturas/farolillo.png" alt="Farolillo">
+        <img src="file:///Users/martinhernandezruiz/Downloads/capturas/farolillo.png" alt="Farolillo">
         <figcaption>Farolillo utilizado como llave de la puerta final.</figcaption>
       </figure>
 
       <figure class="figure">
-        <img src="./capturas/rebujito.png" alt="Rebujito">
+        <img src="file:///Users/martinhernandezruiz/Downloads/capturas/rebujito.png" alt="Rebujito">
         <figcaption>Vaso de rebujito con cristal, líquido, hielo y decoración.</figcaption>
       </figure>
     </div>
@@ -1007,5 +1041,5 @@ http://localhost:8000</code></pre>
     <p>Como trabajo futuro se podrían incorporar nuevos niveles, personajes no jugadores, efectos atmosféricos más avanzados, guardado de partida y una mayor variedad de eventos interactivos dentro del laberinto.</p>
 
   </main>
-</body>
-</html>
+
+</body></html>
