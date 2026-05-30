@@ -66,22 +66,22 @@ class MyScene extends THREE.Scene {
     this.raycaster = new THREE.Raycaster()
 
     this.guiControls = {
-      velocidad: 2.2,
-      sensibilidadRaton: 4.0,
+      velocidad: 1.8,
+      sensibilidadRaton: 1.2,
       mostrarMiniMapa: true,
-      luzBombillas: 1.0,
+      luzBombillas: 2.5,
       musica: true,
       volumenMusica: 0.35
     }
 
     this.background = new THREE.Color(0x77b8df)
 
-    this.objetoMiradoActual = null; 
+    this.objetoMiradoActual = null;
     this.raycasterPicking = new THREE.Raycaster();
     this.raycasterPicking.far = 3.5;
 
-    this.borracheraActiva = false;   
-    this.tiempoBorrachera = 0;      
+    this.borracheraActiva = false;
+    this.tiempoBorrachera = 0;
     this.duracionBorrachera = 6.0;
     this.musicAudio = null
     this.musicStarted = false
@@ -185,14 +185,14 @@ class MyScene extends THREE.Scene {
     this.add(this.dynamicLight)
   }
 
-createAlberoTexture() {
+  createAlberoTexture() {
     const size = 256;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
     const context = canvas.getContext('2d');
 
-    context.fillStyle = '#8080ff'; 
+    context.fillStyle = '#8080ff';
     context.fillRect(0, 0, size, size);
 
     const imageData = context.getImageData(0, 0, size, size);
@@ -215,7 +215,7 @@ createAlberoTexture() {
     return texture;
   }
 
-createGround() {
+  createGround() {
     const size = 256;
     const cColor = document.createElement('canvas');
     cColor.width = cColor.height = size;
@@ -225,9 +225,9 @@ createGround() {
     const imgData = ctx.getImageData(0, 0, size, size);
     for (let i = 0; i < imgData.data.length; i += 4) {
       const n = Math.random() * 30 - 15;
-      imgData.data[i] = THREE.MathUtils.clamp(imgData.data[i]+n, 0, 255);
-      imgData.data[i+1] = THREE.MathUtils.clamp(imgData.data[i+1]+n*0.7, 0, 255);
-      imgData.data[i+2] = THREE.MathUtils.clamp(imgData.data[i+2]+n*0.3, 0, 255);
+      imgData.data[i] = THREE.MathUtils.clamp(imgData.data[i] + n, 0, 255);
+      imgData.data[i + 1] = THREE.MathUtils.clamp(imgData.data[i + 1] + n * 0.7, 0, 255);
+      imgData.data[i + 2] = THREE.MathUtils.clamp(imgData.data[i + 2] + n * 0.3, 0, 255);
     }
     ctx.putImageData(imgData, 0, 0);
     const alberoColor = new THREE.CanvasTexture(cColor);
@@ -726,12 +726,12 @@ createGround() {
 
     // 1. Crear el Abanico (Articulado y animado para la Defensa 3)
     const abanico = new Abanico()
-    this.posicionarPickup(abanico, 2, 2) 
+    this.posicionarPickup(abanico, 2, 2)
 
     // 2. Crear el Farolillo (La Llave requerida por la práctica)
     const llaveFarolillo = new Farolillo()
     llaveFarolillo.setRotacionActiva(true)
-    this.posicionarPickup(llaveFarolillo, 5, 14) 
+    this.posicionarPickup(llaveFarolillo, 5, 14)
 
     // 3. Crear las Castañuelas
     const castanuelas = new Castanuelas()
@@ -811,12 +811,12 @@ createGround() {
     cajaFinal.getSize(tamanoPickup)
     objeto.userData.obstaculo = true
     objeto.userData.radioObstaculo = Math.max(tamanoPickup.x, tamanoPickup.z) * 0.5
-    
+
     this.add(objeto)                     // Para que se vean
     this.pickups.push(objeto)            // Para poder recogerlos con el Raycaster
     this.createPickupMinimapMarker(objeto, this.pickups.length - 1)
     this.registerAnimatedObject(objeto)  // Para que se muevan solos (animación continua) 
-    
+
     objeto.userData.recogible = true
   }
 
@@ -837,20 +837,20 @@ createGround() {
     const intersecciones = this.raycaster.intersectObjects(this.pickups, true);
 
     if (intersecciones.length > 0) {
-        const objetoTocado = intersecciones[0].object;
-        const distancia = intersecciones[0].distance;
+      const objetoTocado = intersecciones[0].object;
+      const distancia = intersecciones[0].distance;
 
-        // Buscamos el padre que tenga la propiedad 'recogible' (por si el rayo toca una parte del objeto)
-        let pickupRaiz = objetoTocado;
-        while (pickupRaiz.parent && !pickupRaiz.userData.recogible) {
-            pickupRaiz = pickupRaiz.parent;
-        }
+      // Buscamos el padre que tenga la propiedad 'recogible' (por si el rayo toca una parte del objeto)
+      let pickupRaiz = objetoTocado;
+      while (pickupRaiz.parent && !pickupRaiz.userData.recogible) {
+        pickupRaiz = pickupRaiz.parent;
+      }
 
-        // REQUISITOS: Que sea recogible, no esté recogido ya y esté CERCA (interactionDistance)
-        if (pickupRaiz.userData.recogible && !pickupRaiz.recogido && distancia < this.interactionDistance) {
-            this.recogerObjeto(pickupRaiz);
-            return true;
-        }
+      // REQUISITOS: Que sea recogible, no esté recogido ya y esté CERCA (interactionDistance)
+      if (pickupRaiz.userData.recogible && !pickupRaiz.recogido && distancia < this.interactionDistance) {
+        this.recogerObjeto(pickupRaiz);
+        return true;
+      }
     }
 
     return false;
@@ -874,12 +874,12 @@ createGround() {
 
       // 4. Si es un pick-up válido y no lo hemos recogido todavía...
       if (nodoEstructura && nodoEstructura.userData.recogible && !nodoEstructura.recogido) {
-        
+
         // Si el objeto es distinto al que mirábamos en el frame anterior:
         if (this.objetoMiradoActual !== nodoEstructura) {
           // Apagamos el brillo del objeto viejo (si había uno)
           this.apagarBrilloObjeto(this.objetoMiradoActual);
-          
+
           // Guardamos y encendemos el nuevo objeto
           this.objetoMiradoActual = nodoEstructura;
           this.encenderBrilloObjeto(this.objetoMiradoActual);
@@ -929,13 +929,13 @@ createGround() {
       objeto.recogido = true;
       objeto.visible = false;
     }
-    
+
     // Sumamos al contador interno y actualizamos el texto de arriba a la izquierda
-    this.registrarPickupRecogido(); 
+    this.registrarPickupRecogido();
     this.updatePickupMinimapMarkers()
-    
+
     this.setHudMessage("¡Has recogido un pick-up!");
-    
+
     // Opcional: imprimir en consola para depurar
     console.log("Pickups recogidos:", this.pickupsRecogidosActuales());
   }
@@ -943,6 +943,13 @@ createGround() {
   activarEfectoBorrachera() {
     this.borracheraActiva = true;
     this.tiempoBorrachera = 0;
+
+    // Bloquea el giro del ratón durante la borrachera
+    if (this.cameraControl && this.cameraControl.isLocked) {
+      this.cameraControl.unlock();
+    }
+
+    this.setHudMessage("Estás mareado: solo puedes avanzar o retroceder");
   }
 
   configureTopCamera() {
@@ -1084,7 +1091,10 @@ createGround() {
 
   onMouseClick(event) {
     this.ensureMusicStarted()
-
+    if (this.borracheraActiva) {
+      this.setHudMessage("Durante la borrachera no puedes girar la cámara");
+      return;
+    }
     if (!this.cameraControl.isLocked) {
       // Con el cursor libre se puede recoger un pick-up sin que la vista se mueva.
       const pointer = this.updateMousePointer(event)
@@ -1253,7 +1263,11 @@ createGround() {
   }
 
   updatePlayer(delta) {
-    if (!this.model || !this.cameraControl.isLocked) {
+    if (!this.model) {
+      return
+    }
+
+    if (!this.cameraControl.isLocked && !this.borracheraActiva) {
       return
     }
 
@@ -1654,34 +1668,35 @@ createGround() {
       this.tiempoBorrachera += segundos;
 
       if (this.tiempoBorrachera < this.duracionBorrachera) {
-        // Mientras dure el efecto, balanceamos la cámara
-        this.camera.rotation.z = Math.sin(this.tiempoBorrachera * 3.5) * 0.08; 
-        
+
+        const inclinacionZ = Math.sin(this.tiempoBorrachera * 3.5) * 1.5;
+
+        this.renderer.domElement.style.transformOrigin = 'center center';
+        this.renderer.domElement.style.transform = `rotate(${inclinacionZ}deg) scale(1.03)`;
+
         if (this.camera.isPerspectiveCamera) {
           this.camera.fov = THREE.MathUtils.clamp(
-            this.defaultCameraFov + Math.sin(this.tiempoBorrachera * 2.0) * 8,
+            this.defaultCameraFov + Math.sin(this.tiempoBorrachera * 2.0) * 3,
             this.minCameraFov,
             this.maxCameraFov
           );
           this.camera.updateProjectionMatrix();
         }
+
       } else {
-        // =====================================================
-        // ¡FIN DEL EFECTO!: RESETEO SEGURO Y LIMPIO
-        // =====================================================
         this.borracheraActiva = false;
-        
-        // CORRECCIÓN: Forzamos matemáticamente los 0 radianes en Z
-        // para asegurar que el horizonte vuelva a estar completamente recto
-        this.camera.rotation.z = 0; 
-        
+        this.tiempoBorrachera = 0;
+
+        this.renderer.domElement.style.transform = '';
+
         if (this.camera.isPerspectiveCamera) {
           this.camera.fov = this.defaultCameraFov;
           this.camera.updateProjectionMatrix();
         }
+
+        this.setHudMessage("Ya puedes volver a mover la cámara");
       }
     }
-
     this.renderScene()
 
     requestAnimationFrame(() => this.update())
