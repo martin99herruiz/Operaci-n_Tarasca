@@ -3,13 +3,13 @@ import * as TWEEN from '../libs/tween.esm.js'
 import { GUI } from 'gui'
 import { PointerLockControls } from '../libs/PointerLockControls.js'
 
-import { Abanico } from '../pick-ups/Abanico.js?v=materiales-2'
+import { Abanico } from '../pick-ups/Abanico.js?v=huida-pasillos-3'
 import { Farolillo } from '../pick-ups/Farolillo.js?v=materiales-2'
 import { Castanuelas } from '../pick-ups/Castanuelas.js?v=materiales-3'
 import { Rebujito } from '../pick-ups/Rebujito.js?v=materiales-2'
 
-import { Laberinto } from './Laberinto.js?v=feria-casetas-29'
-import { FeriaExtras } from './FeriaExtras.js?v=feria-extras-14'
+import { Laberinto } from './Laberinto.js?v=feria-casetas-30'
+import { FeriaExtras } from './FeriaExtras.js?v=feria-extras-18'
 
 class MyScene extends THREE.Scene {
 
@@ -55,6 +55,7 @@ class MyScene extends THREE.Scene {
     this.tmpPosition = new THREE.Vector3()
     this.tmpDoorPosition = new THREE.Vector3()
     this.tmpPickupPosition = new THREE.Vector3()
+    this.tmpCrowdPosition = new THREE.Vector3()
     this.centerPointer = new THREE.Vector2(0, 0)
     this.mousePointer = new THREE.Vector2(0, 0)
     this.raycaster = new THREE.Raycaster()
@@ -62,7 +63,9 @@ class MyScene extends THREE.Scene {
     this.guiControls = {
       velocidad: 2.2,
       mostrarMiniMapa: true,
-      luzBombillas: 1.0
+      luzBombillas: 1.0,
+      musica: true,
+      volumenMusica: 0.35
     }
 
     this.background = new THREE.Color(0x77b8df)
@@ -74,6 +77,9 @@ class MyScene extends THREE.Scene {
     this.borracheraActiva = false;   
     this.tiempoBorrachera = 0;      
     this.duracionBorrachera = 6.0;
+    this.musicAudio = null
+    this.musicStarted = false
+    this.musicMissingNotified = false
 
     this.fog = new THREE.Fog(0xf3c36f, 13, 36)
 
@@ -85,11 +91,12 @@ class MyScene extends THREE.Scene {
     this.createGround()
     this.createDoor()
     this.createPlayerMarker()
+    this.setupMusic()
     this.createGUI()
     this.bindEvents()
 
     const laberintoCargado = $.Deferred()
-    this.model = new Laberinto('./laberinto.txt?v=feria-29', laberintoCargado)
+    this.model = new Laberinto('./laberinto.txt?v=feria-31', laberintoCargado)
     this.add(this.model)
 
     // FileLoader carga el laberinto de forma asincrona; los objetos que dependen
@@ -250,17 +257,45 @@ createGround() {
     this.doorOpening = false
     this.doorTweenState = { p: 0 }
     this.doorMetrics = {
-      openingWidth: 1.55,
-      openingHeight: 2.52,
-      frameThickness: 0.09,
-      frameDepth: 0.16,
-      panelDepth: 0.1
+      // El hueco final del laberinto mide 5 celdas de ancho:
+      // 3 celdas de vano central + 1 celda lateral por cada lado.
+      openingWidth: 3.0,
+      openingRectHeight: 2.2,
+      openingHeight: 3.7,
+      frameThickness: 0.14,
+      frameDepth: 0.24,
+      panelDepth: 0.12,
+      portadaWingWidth: 1.0,
+      portadaHeight: 4.5
     }
 
     const doorMaterial = new THREE.MeshStandardMaterial({
-      color: 0x6b2d12,
-      roughness: 0.5,
+      color: 0x6a3920,
+      roughness: 0.52,
       metalness: 0.05
+    })
+
+    const portadaStone = new THREE.MeshStandardMaterial({
+      color: 0xc7cfbf,
+      roughness: 0.9,
+      metalness: 0.02
+    })
+    const portadaShadow = new THREE.MeshStandardMaterial({
+      color: 0xb6c0af,
+      roughness: 0.88,
+      metalness: 0.02
+    })
+    const portadaTrim = new THREE.MeshStandardMaterial({
+      color: 0xa2ac98,
+      roughness: 0.84,
+      metalness: 0.04
+    })
+    const portadaImageTexture = new THREE.TextureLoader().load('../imgs/images_alhambra.jpeg')
+    portadaImageTexture.colorSpace = THREE.SRGBColorSpace
+    const portadaImageMaterial = new THREE.MeshStandardMaterial({
+      map: portadaImageTexture,
+      roughness: 0.7,
+      metalness: 0.02
     })
 
     this.knobMaterial = new THREE.MeshStandardMaterial({
@@ -272,20 +307,22 @@ createGround() {
 
     const {
       openingWidth,
+      openingRectHeight,
       openingHeight,
       frameThickness,
       frameDepth,
-      panelDepth
+      panelDepth,
+      portadaWingWidth,
+      portadaHeight
     } = this.doorMetrics
     const doorWidth = openingWidth
-    const doorHeight = openingHeight
+    const doorRectHeight = openingRectHeight
+    const totalPortadaWidth = openingWidth + portadaWingWidth * 2
 
     // Hoja de la puerta. Su origen queda en la bisagra izquierda para que rote
     // de forma natural al abrirse.
-    const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, doorHeight, panelDepth), doorMaterial)
-    door.position.set(doorWidth / 2, doorHeight / 2, 0)
-    door.castShadow = true
-    door.receiveShadow = true
+    const door = this.createArchedDoorPanel(doorWidth, doorRectHeight, panelDepth, doorMaterial)
+    door.position.set(0, 0, 0)
     this.doorPivot.add(door)
 
     // Plano oscuro detras de la hoja, usado como hueco visual de salida.
@@ -295,9 +332,11 @@ createGround() {
     )
     this.doorVoid.position.set(openingWidth / 2, openingHeight / 2, 0.07)
     this.doorVoid.renderOrder = -1
+    this.doorVoid.castShadow = false
+    this.doorVoid.receiveShadow = false
 
     this.doorKnob = new THREE.Mesh(new THREE.SphereGeometry(0.065, 24, 16), this.knobMaterial)
-    this.doorKnob.position.set(doorWidth * 0.82, doorHeight * 0.47, -panelDepth * 0.75)
+    this.doorKnob.position.set(doorWidth * 0.82, doorRectHeight * 0.47, -panelDepth * 0.78)
     this.doorKnob.castShadow = true
     this.doorKnob.userData.interactable = 'door'
     this.doorPivot.add(this.doorKnob)
@@ -311,7 +350,7 @@ createGround() {
     const lockHead = new THREE.Mesh(new THREE.CircleGeometry(0.038, 24), lockMaterial)
     const lockSlot = new THREE.Mesh(new THREE.PlaneGeometry(0.034, 0.11), lockMaterial)
     const lockX = doorWidth * 0.82
-    const lockY = doorHeight * 0.35
+    const lockY = doorRectHeight * 0.35
     const lockZ = -panelDepth * 0.86
     lockPlate.position.set(lockX, lockY, lockZ)
     lockHead.position.set(lockX, lockY + 0.048, lockZ - 0.002)
@@ -330,23 +369,163 @@ createGround() {
     this.doorKey.visible = false
     this.doorPivot.add(this.doorKey)
 
-    const frameMaterial = new THREE.MeshStandardMaterial({
-      color: 0x2b1a12,
-      roughness: 0.75
+    // Portada inspirada en la portada de Granada: cuerpo central con arco,
+    // paños laterales, coronación y decoración en relieve.
+    const leftWing = new THREE.Mesh(new THREE.BoxGeometry(portadaWingWidth, portadaHeight, 0.36), portadaStone)
+    const rightWing = leftWing.clone()
+    leftWing.position.set(-portadaWingWidth * 0.5, portadaHeight * 0.5, 0)
+    rightWing.position.set(openingWidth + portadaWingWidth * 0.5, portadaHeight * 0.5, 0)
+
+    const leftNiche = this.createBlindArchRelief(0.62, 2.15, 0.08, portadaTrim, portadaShadow)
+    const rightNiche = this.createBlindArchRelief(0.62, 2.15, 0.08, portadaTrim, portadaShadow)
+    leftNiche.position.set(-portadaWingWidth * 0.5, 1.35, -0.16)
+    rightNiche.position.set(openingWidth + portadaWingWidth * 0.5, 1.35, -0.16)
+
+    const leftPier = new THREE.Mesh(
+      new THREE.BoxGeometry(frameThickness, openingRectHeight + 0.66, frameDepth + 0.04),
+      portadaTrim
+    )
+    const rightPier = leftPier.clone()
+    leftPier.position.set(-frameThickness * 0.5, (openingRectHeight + 0.66) * 0.5, 0)
+    rightPier.position.set(openingWidth + frameThickness * 0.5, (openingRectHeight + 0.66) * 0.5, 0)
+
+    const columnLeft = this.createPortadaColumn(openingRectHeight + 0.22, 0.09, portadaStone, portadaTrim)
+    const columnRight = this.createPortadaColumn(openingRectHeight + 0.22, 0.09, portadaStone, portadaTrim)
+    columnLeft.position.set(-0.22, 0.12, -0.12)
+    columnRight.position.set(openingWidth + 0.22, 0.12, -0.12)
+
+    const archRing = new THREE.Mesh(
+      new THREE.TorusGeometry(openingWidth * 0.5 + frameThickness * 0.48, frameThickness, 16, 64, Math.PI),
+      portadaTrim
+    )
+    archRing.position.set(openingWidth * 0.5, openingRectHeight, -0.03)
+
+    const corniceMain = new THREE.Mesh(
+      new THREE.BoxGeometry(totalPortadaWidth + 0.24, 0.24, 0.44),
+      portadaTrim
+    )
+    corniceMain.position.set(openingWidth * 0.5, openingHeight + 0.07, 0)
+
+    const corniceUpper = new THREE.Mesh(
+      new THREE.BoxGeometry(totalPortadaWidth * 0.78, 0.21, 0.36),
+      portadaStone
+    )
+    corniceUpper.position.set(openingWidth * 0.5, openingHeight + 0.27, 0)
+
+    const pediment = this.createPortadaPediment(totalPortadaWidth * 0.62, 0.56, 0.3, portadaStone)
+    pediment.position.set(openingWidth * 0.5, openingHeight + 0.37, 0.01)
+
+    const crestBase = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.16, 18), portadaTrim)
+    crestBase.position.set(openingWidth * 0.5, openingHeight + 0.74, -0.03)
+    const crestImage = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.24), portadaImageMaterial)
+    crestImage.position.set(openingWidth * 0.5, openingHeight + 0.73, -0.16)
+    crestImage.rotation.y = Math.PI
+
+    this.doorGroup.add(
+      this.doorVoid,
+      leftWing,
+      rightWing,
+      leftNiche,
+      rightNiche,
+      leftPier,
+      rightPier,
+      columnLeft,
+      columnRight,
+      archRing,
+      corniceMain,
+      corniceUpper,
+      pediment,
+      crestBase,
+      crestImage,
+      this.doorPivot
+    )
+
+    this.doorGroup.traverse((node) => {
+      if (node.isMesh && node !== this.doorVoid) {
+        node.castShadow = true
+        node.receiveShadow = true
+      }
     })
-    // Marco construido con tres prismas: dos laterales y uno superior.
-    const frameHeight = openingHeight + frameThickness
-    const frameWidth = openingWidth + frameThickness * 2
-    const leftFrame = new THREE.Mesh(new THREE.BoxGeometry(frameThickness, frameHeight, frameDepth), frameMaterial)
-    const rightFrame = leftFrame.clone()
-    const topFrame = new THREE.Mesh(new THREE.BoxGeometry(frameWidth, frameThickness, frameDepth), frameMaterial)
-    leftFrame.position.set(-frameThickness / 2, frameHeight / 2, 0)
-    rightFrame.position.set(openingWidth + frameThickness / 2, frameHeight / 2, 0)
-    topFrame.position.set(openingWidth / 2, openingHeight + frameThickness / 2, 0)
-    this.doorGroup.add(this.doorVoid, leftFrame, rightFrame, topFrame, this.doorPivot)
 
     this.doorGroup.visible = false
     this.add(this.doorGroup)
+  }
+
+  createArchedDoorPanel(width, rectHeight, depth, material) {
+    const radius = width * 0.5
+    const shape = new THREE.Shape()
+    shape.moveTo(0, 0)
+    shape.lineTo(width, 0)
+    shape.lineTo(width, rectHeight)
+    shape.absarc(width * 0.5, rectHeight, radius, 0, Math.PI, false)
+    shape.lineTo(0, 0)
+
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth,
+      bevelEnabled: false,
+      curveSegments: 28
+    })
+    geometry.translate(0, 0, -depth * 0.5)
+    return new THREE.Mesh(geometry, material)
+  }
+
+  createPortadaColumn(height, radius, shaftMaterial, capMaterial) {
+    const column = new THREE.Group()
+    const shaftHeight = height * 0.72
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius * 0.84, radius, shaftHeight, 18),
+      shaftMaterial
+    )
+    shaft.position.y = height * 0.45
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(radius * 3.2, height * 0.16, 0.18), capMaterial)
+    base.position.y = height * 0.08
+
+    const capital = new THREE.Mesh(new THREE.BoxGeometry(radius * 3.5, height * 0.16, 0.2), capMaterial)
+    capital.position.y = height * 0.82
+
+    column.add(shaft, base, capital)
+    return column
+  }
+
+  createBlindArchRelief(width, height, depth, frameMaterial, fillMaterial) {
+    const relief = new THREE.Group()
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), fillMaterial)
+    panel.position.z = -depth * 0.3
+    relief.add(panel)
+
+    const postWidth = width * 0.13
+    const postHeight = height * 0.58
+    const leftPost = new THREE.Mesh(new THREE.BoxGeometry(postWidth, postHeight, depth * 1.12), frameMaterial)
+    const rightPost = leftPost.clone()
+    const postY = -height * 0.19
+    leftPost.position.set(-(width * 0.5) + postWidth * 0.5, postY, depth * 0.05)
+    rightPost.position.set((width * 0.5) - postWidth * 0.5, postY, depth * 0.05)
+
+    const archRadius = (width - postWidth * 2) * 0.5
+    const arch = new THREE.Mesh(
+      new THREE.TorusGeometry(archRadius, postWidth * 0.48, 12, 32, Math.PI),
+      frameMaterial
+    )
+    arch.position.set(0, postY + postHeight * 0.5, depth * 0.05)
+
+    relief.add(leftPost, rightPost, arch)
+    return relief
+  }
+
+  createPortadaPediment(width, height, depth, material) {
+    const shape = new THREE.Shape()
+    shape.moveTo(-width * 0.5, 0)
+    shape.lineTo(0, height)
+    shape.lineTo(width * 0.5, 0)
+    shape.lineTo(-width * 0.5, 0)
+
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth,
+      bevelEnabled: false
+    })
+    geometry.translate(0, 0, -depth * 0.5)
+    return new THREE.Mesh(geometry, material)
   }
 
   createDoorKey() {
@@ -385,6 +564,69 @@ createGround() {
     this.add(this.playerMarker)
   }
 
+  setupMusic() {
+    // Se prepara el entorno de audio aunque el fichero aun no exista.
+    // El navegador solo permite reproducir tras una interaccion del usuario.
+    this.musicAudio = new Audio('../audio/operacion_tarasca.mp3')
+    this.musicAudio.loop = true
+    this.musicAudio.preload = 'none'
+    this.musicAudio.volume = THREE.MathUtils.clamp(this.guiControls.volumenMusica, 0, 1)
+    this.musicAudio.muted = !this.guiControls.musica
+
+    this.musicAudio.addEventListener('error', () => {
+      if (this.musicMissingNotified) {
+        return
+      }
+
+      this.musicMissingNotified = true
+      console.warn('No se pudo cargar ../audio/operacion_tarasca.mp3')
+    })
+  }
+
+  applyMusicVolume() {
+    if (!this.musicAudio) {
+      return
+    }
+
+    this.musicAudio.volume = THREE.MathUtils.clamp(this.guiControls.volumenMusica, 0, 1)
+  }
+
+  setMusicEnabled(enabled) {
+    this.guiControls.musica = enabled
+
+    if (!this.musicAudio) {
+      return
+    }
+
+    this.musicAudio.muted = !enabled
+
+    if (!enabled) {
+      this.musicAudio.pause()
+      return
+    }
+
+    this.ensureMusicStarted()
+  }
+
+  ensureMusicStarted() {
+    if (!this.musicAudio || !this.guiControls.musica) {
+      return
+    }
+
+    this.applyMusicVolume()
+    const playPromise = this.musicAudio.play()
+
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise
+        .then(() => {
+          this.musicStarted = true
+        })
+        .catch(() => {
+          // Se ignora: puede fallar hasta que haya gesto de usuario o si no existe el archivo.
+        })
+    }
+  }
+
   createGUI() {
     const gui = new GUI({ width: 310 })
     gui.domElement.style.position = 'absolute'
@@ -400,6 +642,14 @@ createGround() {
 
     gui.add(this.guiControls, 'luzBombillas', 0, 3, 0.05)
       .name('Luz bombillas')
+
+    gui.add(this.guiControls, 'musica')
+      .name('Musica')
+      .onChange((valor) => this.setMusicEnabled(valor))
+
+    gui.add(this.guiControls, 'volumenMusica', 0, 1, 0.01)
+      .name('Volumen musica')
+      .onChange(() => this.applyMusicVolume())
 
     return gui
   }
@@ -430,7 +680,7 @@ createGround() {
     )
 
     this.placePlayerAtEntrance()
-    this.placeDoorAtWall(25, 27, 'west')
+    this.placeDoorAtWall(27, 14, 'south')
 
     // 1. Crear el Abanico (Articulado y animado para la Defensa 3)
     const abanico = new Abanico()
@@ -666,6 +916,10 @@ createGround() {
   }
 
   onKey(event, pressed) {
+    if (pressed) {
+      this.ensureMusicStarted()
+    }
+
     switch (event.code) {
       case 'KeyW':
       case 'ArrowUp':
@@ -764,6 +1018,8 @@ createGround() {
   }
 
   onMouseClick(event) {
+    this.ensureMusicStarted()
+
     if (!this.cameraControl.isLocked) {
       // Con el cursor libre se puede recoger un pick-up sin que la vista se mueva.
       const pointer = this.updateMousePointer(event)
@@ -885,6 +1141,8 @@ createGround() {
       .onComplete(() => {
         this.doorOpenAmount = 1
         this.doorPivot.rotation.y = -Math.PI * 0.55
+        // Al abrir completamente la puerta, consideramos el juego terminado.
+        this.onGameFinished()
       })
       .start()
   }
@@ -974,7 +1232,8 @@ createGround() {
   canPlayerMoveTo(position) {
     return (
       this.model.puedeMoverseA(position, this.playerRadius) &&
-      !this.intersectsPickupObstacle(position)
+      !this.intersectsPickupObstacle(position) &&
+      !this.intersectsCrowdObstacle(position)
     )
   }
 
@@ -989,6 +1248,27 @@ createGround() {
       const minDistance = this.playerRadius + pickup.userData.radioObstaculo
       const dx = position.x - this.tmpPickupPosition.x
       const dz = position.z - this.tmpPickupPosition.z
+
+      return dx * dx + dz * dz < minDistance * minDistance
+    })
+  }
+
+  intersectsCrowdObstacle(position) {
+    if (!this.feriaExtras || !Array.isArray(this.feriaExtras.flamencoFigures)) {
+      return false
+    }
+
+    return this.feriaExtras.flamencoFigures.some((figure) => {
+      if (!figure.visible || !figure.userData.obstaculo) {
+        return false
+      }
+
+      figure.getWorldPosition(this.tmpCrowdPosition)
+
+      const radius = figure.userData.radioObstaculo || 0.17
+      const minDistance = this.playerRadius + radius
+      const dx = position.x - this.tmpCrowdPosition.x
+      const dz = position.z - this.tmpCrowdPosition.z
 
       return dx * dx + dz * dz < minDistance * minDistance
     })
@@ -1183,6 +1463,38 @@ createGround() {
 
     if (message) {
       message.textContent = text
+    }
+  }
+
+  onGameFinished() {
+    if (this.musicAudio) {
+      this.musicAudio.pause()
+    }
+
+    // Liberar el cursor si estaba bloqueado
+    try {
+      if (this.cameraControl && this.cameraControl.isLocked) {
+        this.cameraControl.unlock()
+      }
+    } catch (e) {
+      // Ignorar si no está disponible
+    }
+
+    const end = document.getElementById('EndScreen')
+    if (!end) return
+
+    const msg = document.getElementById('EndScreenMessage')
+    if (msg) msg.textContent = 'Con estilo y elegancia hoy te vuelves en ambulancia'
+
+    // Mostrar overlay
+    end.style.display = 'flex'
+
+    const btn = document.getElementById('RestartButton')
+    if (btn) {
+      btn.addEventListener('click', () => {
+        // Reinicia recargando la página para volver a empezar la escena
+        window.location.reload()
+      })
     }
   }
 

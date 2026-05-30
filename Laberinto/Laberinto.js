@@ -211,6 +211,33 @@ class Laberinto extends THREE.Object3D {
     })
   }
 
+  puedeContenerCaja(cajaMundo, margen = 0) {
+    if (cajaMundo.isEmpty()) {
+      return true
+    }
+
+    const medioBloque = this.anchoBloque * 0.5
+    const minX = cajaMundo.min.x - margen
+    const maxX = cajaMundo.max.x + margen
+    const minZ = cajaMundo.min.z - margen
+    const maxZ = cajaMundo.max.z + margen
+
+    const columnaMin = Math.ceil((minX - this.position.x - medioBloque) / this.anchoBloque)
+    const columnaMax = Math.floor((maxX - this.position.x + medioBloque) / this.anchoBloque)
+    const filaMin = Math.ceil((minZ - this.position.z - medioBloque) / this.anchoBloque)
+    const filaMax = Math.floor((maxZ - this.position.z + medioBloque) / this.anchoBloque)
+
+    for (let fila = filaMin; fila <= filaMax; fila++) {
+      for (let columna = columnaMin; columna <= columnaMax; columna++) {
+        if (this.esMuro(fila, columna)) {
+          return false
+        }
+      }
+    }
+
+    return true
+  }
+
   update() {
   }
 }

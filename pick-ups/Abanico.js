@@ -72,12 +72,25 @@ class Abanico extends THREE.Object3D {
 
         this.velocidadHuida = 1.8; // metros por segundo
         this.distanciaMiedo = 2; // Distancia a la que el abanico empieza a correr
+        this.pasosAnticipacionCurva = 2;
         this.direccionHuida = new THREE.Vector3();
         this.rayoParedes = new THREE.Raycaster();
         this.rayoParedes.far = 0.5;
+        this.cajaColision = new THREE.Box3();
+        this.tamanoColision = new THREE.Vector3();
+        this.posicionAnterior = new THREE.Vector3();
+        this.quaternionAnterior = new THREE.Quaternion();
+        this.tmpCentroCelda = new THREE.Vector3();
+        this.direccionesPasillo = [
+            new THREE.Vector3(1, 0, 0),
+            new THREE.Vector3(-1, 0, 0),
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(0, 0, -1)
+        ];
 
         this.construir();
         this.actualizar();
+        this.actualizarCajaColision();
     }
 
     cargarTexturaRepetida(ruta, repeatX = 1, repeatY = 1) {
@@ -263,20 +276,223 @@ class Abanico extends THREE.Object3D {
         }
     }
 
+    actualizarCajaColision() {
+        this.updateMatrixWorld(true);
+        this.cajaColision.setFromObject(this);
+        this.cajaColision.getSize(this.tamanoColision);
+        this.userData.radioObstaculo = Math.max(this.tamanoColision.x, this.tamanoColision.z) * 0.5;
+        return this.cajaColision;
+    }
+
+    cajaCabeEnLaberinto(laberinto) {
+        return !laberinto || !laberinto.puedeContenerCaja || laberinto.puedeContenerCaja(this.actualizarCajaColision(), 0.02);
+    }
+
+    puedeOcuparPosicion(posicion, direccion, laberinto) {
+        if (!laberinto || !laberinto.puedeContenerCaja) {
+            return true;
+        }
+
+        this.posicionAnterior.copy(this.position);
+        this.quaternionAnterior.copy(this.quaternion);
+
+        this.position.copy(posicion);
+        if (direccion) {
+            this.lookAt(
+                this.position.x + direccion.x,
+                this.position.y,
+                this.position.z + direccion.z
+            );
+        }
+
+        const cabe = this.cajaCabeEnLaberinto(laberinto);
+
+        this.position.copy(this.posicionAnterior);
+        this.quaternion.copy(this.quaternionAnterior);
+        this.actualizarCajaColision();
+        return cabe;
+    }
+
+    alinearPosicionAPasillo(posicion, direccion, laberinto) {
+        if (!laberinto || !laberinto.getCeldaFromMundo || !laberinto.getMundoFromCelda) {
+            return posicion;
+        }
+
+        const celda = laberinto.getCeldaFromMundo(posicion);
+        laberinto.getMundoFromCelda(celda.fila, celda.columna, this.tmpCentroCelda);
+
+        if (Math.abs(direccion.x) > Math.abs(direccion.z)) {
+            posicion.z = this.tmpCentroCelda.z;
+        } else {
+            posicion.x = this.tmpCentroCelda.x;
+        }
+
+        return posicion;
+    }
+
+    estimarTramoLibre(direccion, distanciaPaso, laberinto, maxPasos = 8) {
+        if (!laberinto) {
+            return maxPasos;
+        }
+
+        const posicionPrueba = this.position.clone();
+        let pasosLibres = 0;
+
+        for (let i = 0; i < maxPasos; i++) {
+            posicionPrueba.x += direccion.x * distanciaPaso;
+            posicionPrueba.z += direccion.z * distanciaPaso;
+            this.alinearPosicionAPasillo(posicionPrueba, direccion, laberinto);
+
+            if (!this.puedeOcuparPosicion(posicionPrueba, direccion, laberinto)) {
+                break;
+            }
+
+            pasosLibres++;
+        }
+
+        return pasosLibres;
+    }
+
+    desplazarSiCabe(direccion, distancia, laberinto) {
+        const nuevaPosicion = this.position.clone();
+        nuevaPosicion.x += direccion.x * distancia;
+        nuevaPosicion.z += direccion.z * distancia;
+        this.alinearPosicionAPasillo(nuevaPosicion, direccion, laberinto);
+
+        if (!this.puedeOcuparPosicion(nuevaPosicion, direccion, laberinto)) {
+            return false;
+        }
+
+        this.position.copy(nuevaPosicion);
+        this.lookAt(
+            this.position.x + direccion.x,
+            this.position.y,
+            this.position.z + direccion.z
+        );
+        this.actualizarCajaColision();
+        return true;
+    }
+
+    obtenerDireccionesHuidaPorPasillo(playerPos, laberinto, distanciaPrueba = 0.35) {
+        const distanciaActualSq = this.position.distanceToSquared(playerPos);
+        const tieneDireccionActual = this.direccionHuida.lengthSq() > 0;
+        const direccionesEvaluadas = this.direccionesPasillo
+            .map((direccion) => {
+                const posicionPrueba = this.position.clone();
+                posicionPrueba.x += direccion.x * distanciaPrueba;
+                posicionPrueba.z += direccion.z * distanciaPrueba;
+                this.alinearPosicionAPasillo(posicionPrueba, direccion, laberinto);
+
+                const distanciaSq = posicionPrueba.distanceToSquared(playerPos);
+                const gananciaDistancia = distanciaSq - distanciaActualSq;
+                const tramoLibre = this.estimarTramoLibre(direccion, distanciaPrueba, laberinto, 8);
+                if (tramoLibre <= 0) {
+                    return null;
+                }
+
+                const mismaDireccion = tieneDireccionActual && direccion.dot(this.direccionHuida) > 0.99;
+                const continuidadBase = mismaDireccion ? 0.25 : 0;
+                const bonusDistancia = gananciaDistancia > 0 ? gananciaDistancia : gananciaDistancia * 0.35;
+                const scoreBase = bonusDistancia + tramoLibre * 0.4 + continuidadBase;
+
+                return {
+                    direccion,
+                    score: scoreBase,
+                    tramoLibre,
+                    gananciaDistancia,
+                    mismaDireccion
+                };
+            })
+            .filter((opcion) => opcion !== null);
+
+        if (direccionesEvaluadas.length === 0) {
+            return [];
+        }
+
+        // Anticipación de curva/esquina:
+        // si seguimos recto y quedan pocos pasos libres, penalizamos esa elección
+        // para entrar antes en el giro del pasillo disponible.
+        if (tieneDireccionActual) {
+            const actual = direccionesEvaluadas.find((opcion) => opcion.mismaDireccion);
+            if (actual && actual.tramoLibre <= this.pasosAnticipacionCurva) {
+                const mejorAlternativa = direccionesEvaluadas
+                    .filter((opcion) => !opcion.mismaDireccion)
+                    .sort((a, b) => b.tramoLibre - a.tramoLibre)[0];
+
+                if (mejorAlternativa && mejorAlternativa.tramoLibre > actual.tramoLibre) {
+                    actual.score -= (this.pasosAnticipacionCurva - actual.tramoLibre + 1) * 1.2;
+                    mejorAlternativa.score += 1.4;
+                }
+            }
+        }
+
+        return direccionesEvaluadas
+            .sort((a, b) => b.score - a.score)
+            .map((opcion) => opcion.direccion);
+    }
+
+    setAperturaSegura(valor, laberinto) {
+        const aperturaObjetivo = THREE.MathUtils.clamp(valor, this.anguloMin, this.anguloMax);
+
+        this.anguloActual = aperturaObjetivo;
+        this.actualizar();
+
+        if (this.cajaCabeEnLaberinto(laberinto)) {
+            return true;
+        }
+
+        this.anguloActual = this.anguloMin;
+        this.actualizar();
+
+        if (!this.cajaCabeEnLaberinto(laberinto)) {
+            this.actualizarCajaColision();
+            return false;
+        }
+
+        let aperturaValida = this.anguloMin;
+        let limiteLibre = this.anguloMin;
+        let limiteBloqueado = aperturaObjetivo;
+
+        for (let i = 0; i < 6; i++) {
+            const aperturaPrueba = (limiteLibre + limiteBloqueado) * 0.5;
+            this.anguloActual = aperturaPrueba;
+            this.actualizar();
+
+            if (this.cajaCabeEnLaberinto(laberinto)) {
+                aperturaValida = aperturaPrueba;
+                limiteLibre = aperturaPrueba;
+            } else {
+                limiteBloqueado = aperturaPrueba;
+            }
+        }
+
+        this.anguloActual = aperturaValida;
+        this.actualizar();
+        this.actualizarCajaColision();
+        return true;
+    }
+
     update(delta = 0, playerPos = null) {
         const segundos = delta > 10 ? delta / 1000 : delta;
         this.tiempo += segundos;
+        const escenaGlobal = window.gameScene;
+        const laberinto = escenaGlobal && escenaGlobal.model ? escenaGlobal.model : null;
 
         // 1. Giro sobre sí mismo de exposición (lo que ya tenías)
         if (this.rotacionActiva) {
+            this.quaternionAnterior.copy(this.quaternion);
             this.rotation.y += 0.5 * segundos;
+
+            if (!this.cajaCabeEnLaberinto(laberinto)) {
+                this.quaternion.copy(this.quaternionAnterior);
+                this.actualizarCajaColision();
+            }
         }
 
         // 2. Animación de abrir/cerrar el abanico (lo que ya tenías)
         if (this.animacionActiva) {
             const t = 0.5 + 0.5 * Math.sin(this.tiempo);
-            this.anguloActual = this.anguloMin + t * (this.anguloMax - this.anguloMin);
-            this.actualizar();
+            this.setAperturaSegura(this.anguloMin + t * (this.anguloMax - this.anguloMin), laberinto);
         }
 
         // =====================================================
@@ -290,101 +506,16 @@ class Abanico extends THREE.Object3D {
 
         // Si el jugador entra dentro de su radio de miedo... ¡a correr!
         if (distanciaAlJugador < this.distanciaMiedo) {
-            
-            // A) Calculamos el vector de dirección: PosiciónAbanico - PosiciónJugador
-            // Esto nos da un vector que apunta exactamente en sentido opuesto a ti
-            this.direccionHuida.subVectors(this.position, playerPos);
-            
-            // B) Anulamos el eje Y para evitar que el abanico flote hacia el cielo o se hunda en el suelo
-            this.direccionHuida.y = 0;
-            
-            // C) Normalizamos el vector para que su longitud sea exactamente 1 (Lección 6, Pág. 30)
-            this.direccionHuida.normalize();
-
             // =====================================================
-            // NUEVO: MOVIMIENTO CONTROLADO POR EL LABERINTO (L6)
+            // Movimiento por pasillos: solo direcciones cardinales del laberinto.
             // =====================================================
             const espacioAvance = this.velocidadHuida * segundos;
-            
-            // 1. Calculamos la posición virtual a la que quiere huir
-            const nuevaPosicion = this.position.clone();
-            nuevaPosicion.x += this.direccionHuida.x * espacioAvance;
-            nuevaPosicion.z += this.direccionHuida.z * espacioAvance;
+            const direccionesHuida = this.obtenerDireccionesHuidaPorPasillo(playerPos, laberinto, Math.max(espacioAvance, 0.35));
 
-            // 2. Accedemos a la escena global para usar la física del mapa
-            const escenaGlobal = window.gameScene;
-
-            // 1. Pasamos el test predictivo: ¿está libre el pasillo en línea recta?
-            if (escenaGlobal && escenaGlobal.model && escenaGlobal.model.puedeMoverseA(nuevaPosicion, 0.3)) {
-                
-                // SI ESTÁ LIBRE: Avanza normalmente en línea recta huyendo de ti
-                this.position.x = nuevaPosicion.x;
-                this.position.z = nuevaPosicion.z;
-
-                // Se orienta mirando hacia donde corre
-                this.lookAt(
-                    this.position.x + this.direccionHuida.x,
-                    this.position.y,
-                    this.position.z + this.direccionHuida.z
-                );
-
-            } else {
-                // =====================================================
-                // ¡ALERTA DE MURO!: El abanico ha chocado, calculamos nueva ruta
-                // =====================================================
-                
-                // Intentamos buscar un desvío rotando el vector de huida 90º o -90º (izquierda o derecha)
-                // Elegimos al azar si intentar primero girar a la izquierda o a la derecha
-                const girarALaDerecha = Math.random() > 0.5;
-                const anguloGiro = girarALaDerecha ? Math.PI / 2 : -Math.PI / 2;
-
-                // Clonamos nuestra dirección actual y le aplicamos la rotación en el plano horizontal (X, Z)
-                const direccionDesvio = this.direccionHuida.clone();
-                direccionDesvio.applyAxisAngle(new THREE.Vector3(0, 1, 0), anguloGiro);
-
-                // Calculamos una NUEVA posición candidata de escape hacia ese lado
-                const posicionDesvio = this.position.clone();
-                posicionDesvio.x += direccionDesvio.x * espacioAvance;
-                posicionDesvio.z += direccionDesvio.z * espacioAvance;
-
-                // Probamos si este nuevo pasillo lateral está libre de muros
-                if (escenaGlobal && escenaGlobal.model && escenaGlobal.model.puedeMoverseA(posicionDesvio, 0.15)) {
-                    
-                    // ¡Encontró salida! Actualizamos la posición hacia el pasillo libre
-                    this.position.x = posicionDesvio.x;
-                    this.position.z = posicionDesvio.z;
-
-                    // IMPORTANTE: Sobrescribimos la dirección de huida original por la nueva 
-                    // para que el abanico recuerde en el siguiente frame que ahora corre por este pasillo
-                    this.direccionHuida.copy(direccionDesvio);
-
-                    // Orientamos el objeto hacia su nuevo camino
-                    this.lookAt(
-                        this.position.x + this.direccionHuida.x,
-                        this.position.y,
-                        this.position.z + this.direccionHuida.z
-                    );
-                } else {
-                    // Si el pasillo lateral también estaba bloqueado (una esquina cerrada sin salida),
-                    // probamos el lado contrario inmediatamente para dar la vuelta completa
-                    const direccionInversa = direccionDesvio.clone().negate();
-                    
-                    const posicionInversa = this.position.clone();
-                    posicionInversa.x += direccionInversa.x * espacioAvance;
-                    posicionInversa.z += direccionInversa.z * espacioAvance;
-
-                    if (escenaGlobal && escenaGlobal.model && escenaGlobal.model.puedeMoverseA(posicionInversa, 0.15)) {
-                        this.position.x = posicionInversa.x;
-                        this.position.z = posicionInversa.z;
-                        this.direccionHuida.copy(direccionInversa);
-                        
-                        this.lookAt(
-                            this.position.x + this.direccionHuida.x,
-                            this.position.y,
-                            this.position.z + this.direccionHuida.z
-                        );
-                    }
-                    // Si está acorralado por los 3 lados, se parará pacientemente hasta que lo alcances
+            for (const direccion of direccionesHuida) {
+                if (this.desplazarSiCabe(direccion, espacioAvance, laberinto)) {
+                    this.direccionHuida.copy(direccion);
+                    return;
                 }
             }
         }
@@ -401,6 +532,7 @@ class Abanico extends THREE.Object3D {
     setApertura(valor) {
         this.anguloActual = THREE.MathUtils.clamp(valor, this.anguloMin, this.anguloMax);
         this.actualizar();
+        this.actualizarCajaColision();
     }
 }
 

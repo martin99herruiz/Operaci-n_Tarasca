@@ -18,10 +18,90 @@ class FeriaExtras extends THREE.Group {
       this.createBulbMaterial(0x67d8ff),
       this.createBulbMaterial(0x82ff9a)
     ]
+    this.flamencoFigures = []
+    this.flamencoMaxFigures = 160
+    this.flamencoSpawnModulo = 2
+    this.flamencoGeometries = {
+      skirt: new THREE.ConeGeometry(0.2, 0.58, 14),
+      ruffle: new THREE.TorusGeometry(0.17, 0.03, 8, 18),
+      torso: new THREE.CylinderGeometry(0.09, 0.11, 0.26, 12),
+      head: new THREE.SphereGeometry(0.09, 14, 10),
+      bun: new THREE.SphereGeometry(0.05, 10, 8),
+      arm: new THREE.CylinderGeometry(0.022, 0.022, 0.26, 8),
+      sleeve: new THREE.CylinderGeometry(0.033, 0.04, 0.12, 8),
+      hand: new THREE.SphereGeometry(0.024, 8, 8)
+    }
+    this.cortoGeometries = {
+      pelvis: new THREE.BoxGeometry(0.22, 0.18, 0.14),
+      torso: new THREE.BoxGeometry(0.22, 0.24, 0.14),
+      jacket: new THREE.BoxGeometry(0.24, 0.19, 0.16),
+      shirt: new THREE.BoxGeometry(0.09, 0.19, 0.02),
+      leg: new THREE.CylinderGeometry(0.034, 0.036, 0.3, 10),
+      boot: new THREE.BoxGeometry(0.07, 0.075, 0.12),
+      hatBrim: new THREE.CylinderGeometry(0.13, 0.13, 0.024, 20),
+      hatCrown: new THREE.CylinderGeometry(0.078, 0.078, 0.09, 18)
+    }
+    this.flamencoSkinMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf1c7a5,
+      roughness: 0.62
+    })
+    this.flamencoHairMaterial = new THREE.MeshStandardMaterial({
+      color: 0x35231b,
+      roughness: 0.8
+    })
+    this.flamencoFigureShadowMaterial = new THREE.MeshStandardMaterial({
+      color: 0x151515,
+      roughness: 0.86
+    })
+    this.flamencoDressPalette = [
+      0xd73e33,
+      0x1f4aa8,
+      0x1e7a58,
+      0x8f2e74,
+      0xe28f2f,
+      0x222222,
+      0xc23d6b
+    ]
+    this.flamencoShawlPalette = [
+      0xf7dec8,
+      0xf4f1e5,
+      0xc8e6ff,
+      0xcfeec8
+    ]
+    this.cortoJacketMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0x2f3448, roughness: 0.62 }),
+      new THREE.MeshStandardMaterial({ color: 0x6d5a47, roughness: 0.62 }),
+      new THREE.MeshStandardMaterial({ color: 0x454a38, roughness: 0.62 }),
+      new THREE.MeshStandardMaterial({ color: 0x1f4b74, roughness: 0.62 })
+    ]
+    this.cortoPantMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0x202022, roughness: 0.72 }),
+      new THREE.MeshStandardMaterial({ color: 0x3a3530, roughness: 0.72 }),
+      new THREE.MeshStandardMaterial({ color: 0x2d3140, roughness: 0.72 })
+    ]
+    this.cortoSashMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0xbd2d2d, roughness: 0.5 }),
+      new THREE.MeshStandardMaterial({ color: 0x4069b5, roughness: 0.5 }),
+      new THREE.MeshStandardMaterial({ color: 0x2f8c60, roughness: 0.5 }),
+      new THREE.MeshStandardMaterial({ color: 0xdbc170, roughness: 0.5 })
+    ]
+    this.cortoShirtMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf4efe2,
+      roughness: 0.52
+    })
+    this.cortoHatMaterial = new THREE.MeshStandardMaterial({
+      color: 0x2a2621,
+      roughness: 0.78
+    })
+    this.cortoBootMaterial = new THREE.MeshStandardMaterial({
+      color: 0x161616,
+      roughness: 0.85
+    })
 
     this.createEntranceRoad()
     this.createGarlands()
     this.createFairEntrance()
+    this.createFlamencoCrowd()
   }
 
   createBulbMaterial(color) {
@@ -276,6 +356,273 @@ class FeriaExtras extends THREE.Group {
     this.add(entrance)
   }
 
+  createFlamencoCrowd() {
+    const candidates = []
+    const maxRow = this.laberinto.zNumBloques - 2
+    const maxCol = this.laberinto.xNumBloques - 2
+
+    for (let fila = 2; fila <= maxRow; fila++) {
+      for (let columna = 2; columna <= maxCol; columna++) {
+        if (this.laberinto.esMuro(fila, columna)) {
+          continue
+        }
+
+        // Evitar la zona de salida para que la portada final destaque visualmente.
+        if (fila >= this.laberinto.zNumBloques - 5 && columna >= 11 && columna <= 17) {
+          continue
+        }
+
+        const wallSide = this.getWallSideDirection(fila, columna)
+        if (!wallSide) {
+          continue
+        }
+
+        if ((fila * 13 + columna * 7) % this.flamencoSpawnModulo === 0) {
+          candidates.push({ fila, columna })
+        }
+      }
+    }
+
+    const maxSlots = Math.min(candidates.length, this.flamencoMaxFigures)
+    const evenSlots = maxSlots - (maxSlots % 2)
+    const slots = candidates.slice(0, evenSlots)
+
+    slots.forEach((slot, index) => {
+      const base = new THREE.Vector3()
+      this.laberinto.getMundoFromCelda(slot.fila, slot.columna, base)
+      const wallSide = this.getWallSideDirection(slot.fila, slot.columna)
+
+      const figure = this.createCrowdFigure(index)
+      const jitter = (((slot.fila + slot.columna * 5) % 5) - 2) * 0.016
+      const sideOffset = 0.23
+
+      let x = base.x
+      let z = base.z
+
+      if (wallSide) {
+        x += wallSide.x * sideOffset
+        z += wallSide.z * sideOffset
+
+        if (Math.abs(wallSide.x) > 0) {
+          z += jitter
+        } else {
+          x += jitter
+        }
+      }
+
+      figure.position.set(x, 0, z)
+      figure.rotation.y = ((slot.fila * 19 + slot.columna * 11) % 360) * (Math.PI / 180)
+      figure.userData.baseY = 0
+      figure.userData.baseRotationY = figure.rotation.y
+      figure.userData.swingPhase = index * 0.57 + slot.fila * 0.11
+      figure.userData.swingIntensity = 0.07 + (index % 5) * 0.01
+      figure.userData.obstaculo = true
+      figure.userData.radioObstaculo = 0.17
+
+      this.flamencoFigures.push(figure)
+      this.add(figure)
+    })
+  }
+
+  getWallSideDirection(fila, columna) {
+    const sides = []
+
+    if (this.laberinto.esMuro(fila - 1, columna)) sides.push({ x: 0, z: -1 })
+    if (this.laberinto.esMuro(fila + 1, columna)) sides.push({ x: 0, z: 1 })
+    if (this.laberinto.esMuro(fila, columna - 1)) sides.push({ x: -1, z: 0 })
+    if (this.laberinto.esMuro(fila, columna + 1)) sides.push({ x: 1, z: 0 })
+
+    if (sides.length === 0) {
+      return null
+    }
+
+    const pick = (fila * 31 + columna * 17) % sides.length
+    return sides[pick]
+  }
+
+  createCrowdFigure(index) {
+    // Reparto 50/50 exacto: mismo numero de mujeres de flamenca y hombres de corto.
+    if (index % 2 === 0) {
+      return this.createFlamencoFigure(index)
+    }
+
+    return this.createCortoFigure(index)
+  }
+
+  createFlamencoFigure(index) {
+    const figure = new THREE.Group()
+    const dressColor = this.flamencoDressPalette[index % this.flamencoDressPalette.length]
+    const shawlColor = this.flamencoShawlPalette[index % this.flamencoShawlPalette.length]
+    const dressMaterial = new THREE.MeshStandardMaterial({
+      color: dressColor,
+      roughness: 0.56
+    })
+    const shawlMaterial = new THREE.MeshStandardMaterial({
+      color: shawlColor,
+      roughness: 0.52
+    })
+
+    const skirt = new THREE.Mesh(this.flamencoGeometries.skirt, dressMaterial)
+    skirt.position.y = 0.29
+    skirt.castShadow = true
+    skirt.receiveShadow = true
+    figure.add(skirt)
+
+    const ruffle = new THREE.Mesh(this.flamencoGeometries.ruffle, shawlMaterial)
+    ruffle.rotation.x = Math.PI / 2
+    ruffle.position.y = 0.05
+    figure.add(ruffle)
+
+    const torso = new THREE.Mesh(this.flamencoGeometries.torso, shawlMaterial)
+    torso.position.y = 0.64
+    torso.castShadow = true
+    torso.receiveShadow = true
+    figure.add(torso)
+
+    const head = new THREE.Mesh(this.flamencoGeometries.head, this.flamencoSkinMaterial)
+    head.position.y = 0.86
+    head.castShadow = true
+    figure.add(head)
+
+    const bun = new THREE.Mesh(this.flamencoGeometries.bun, this.flamencoHairMaterial)
+    bun.position.set(-0.03, 0.92, -0.045)
+    figure.add(bun)
+
+    const shadowCollar = new THREE.Mesh(this.flamencoGeometries.ruffle, this.flamencoFigureShadowMaterial)
+    shadowCollar.rotation.x = Math.PI / 2
+    shadowCollar.scale.set(0.68, 0.68, 0.68)
+    shadowCollar.position.y = 0.73
+    figure.add(shadowCollar)
+
+    const leftArmGroup = new THREE.Group()
+    const rightArmGroup = new THREE.Group()
+    const leftArm = new THREE.Mesh(this.flamencoGeometries.arm, this.flamencoSkinMaterial)
+    const rightArm = new THREE.Mesh(this.flamencoGeometries.arm, this.flamencoSkinMaterial)
+    const leftSleeve = new THREE.Mesh(this.flamencoGeometries.sleeve, dressMaterial)
+    const rightSleeve = new THREE.Mesh(this.flamencoGeometries.sleeve, dressMaterial)
+    const leftHand = new THREE.Mesh(this.flamencoGeometries.hand, this.flamencoSkinMaterial)
+    const rightHand = new THREE.Mesh(this.flamencoGeometries.hand, this.flamencoSkinMaterial)
+
+    leftArm.position.y = -0.13
+    rightArm.position.y = -0.13
+    leftSleeve.position.y = -0.04
+    rightSleeve.position.y = -0.04
+    leftHand.position.y = -0.27
+    rightHand.position.y = -0.27
+
+    leftArmGroup.position.set(-0.13, 0.73, 0)
+    rightArmGroup.position.set(0.13, 0.73, 0)
+    leftArmGroup.rotation.z = 0.32
+    rightArmGroup.rotation.z = -0.32
+
+    leftArmGroup.add(leftArm, leftSleeve, leftHand)
+    rightArmGroup.add(rightArm, rightSleeve, rightHand)
+    figure.add(leftArmGroup, rightArmGroup)
+
+    figure.userData.leftArm = leftArmGroup
+    figure.userData.rightArm = rightArmGroup
+    figure.userData.leftArmBaseRotation = 0.32
+    figure.userData.rightArmBaseRotation = -0.32
+    figure.userData.armSwingScale = 0.14
+    figure.scale.setScalar(0.74)
+
+    return figure
+  }
+
+  createCortoFigure(index) {
+    const figure = new THREE.Group()
+    const jacketMaterial = this.cortoJacketMaterials[index % this.cortoJacketMaterials.length]
+    const pantMaterial = this.cortoPantMaterials[index % this.cortoPantMaterials.length]
+    const sashMaterial = this.cortoSashMaterials[index % this.cortoSashMaterials.length]
+
+    const pelvis = new THREE.Mesh(this.cortoGeometries.pelvis, pantMaterial)
+    pelvis.position.y = 0.34
+    pelvis.castShadow = true
+    pelvis.receiveShadow = true
+    figure.add(pelvis)
+
+    const torso = new THREE.Mesh(this.cortoGeometries.torso, jacketMaterial)
+    torso.position.y = 0.56
+    torso.castShadow = true
+    torso.receiveShadow = true
+    figure.add(torso)
+
+    const jacket = new THREE.Mesh(this.cortoGeometries.jacket, jacketMaterial)
+    jacket.position.set(0, 0.6, -0.015)
+    jacket.castShadow = true
+    figure.add(jacket)
+
+    const shirt = new THREE.Mesh(this.cortoGeometries.shirt, this.cortoShirtMaterial)
+    shirt.position.set(0, 0.58, 0.07)
+    figure.add(shirt)
+
+    const sash = new THREE.Mesh(this.flamencoGeometries.ruffle, sashMaterial)
+    sash.rotation.x = Math.PI / 2
+    sash.scale.set(0.62, 0.62, 0.62)
+    sash.position.y = 0.44
+    figure.add(sash)
+
+    const leftLeg = new THREE.Mesh(this.cortoGeometries.leg, pantMaterial)
+    const rightLeg = new THREE.Mesh(this.cortoGeometries.leg, pantMaterial)
+    leftLeg.position.set(-0.058, 0.16, 0)
+    rightLeg.position.set(0.058, 0.16, 0)
+    leftLeg.castShadow = true
+    rightLeg.castShadow = true
+    figure.add(leftLeg, rightLeg)
+
+    const leftBoot = new THREE.Mesh(this.cortoGeometries.boot, this.cortoBootMaterial)
+    const rightBoot = new THREE.Mesh(this.cortoGeometries.boot, this.cortoBootMaterial)
+    leftBoot.position.set(-0.058, 0.03, 0.03)
+    rightBoot.position.set(0.058, 0.03, 0.03)
+    figure.add(leftBoot, rightBoot)
+
+    const head = new THREE.Mesh(this.flamencoGeometries.head, this.flamencoSkinMaterial)
+    head.position.y = 0.84
+    head.castShadow = true
+    figure.add(head)
+
+    const hatBrim = new THREE.Mesh(this.cortoGeometries.hatBrim, this.cortoHatMaterial)
+    hatBrim.position.y = 0.92
+    figure.add(hatBrim)
+
+    const hatCrown = new THREE.Mesh(this.cortoGeometries.hatCrown, this.cortoHatMaterial)
+    hatCrown.position.y = 0.975
+    figure.add(hatCrown)
+
+    const leftArmGroup = new THREE.Group()
+    const rightArmGroup = new THREE.Group()
+    const leftArm = new THREE.Mesh(this.flamencoGeometries.arm, this.flamencoSkinMaterial)
+    const rightArm = new THREE.Mesh(this.flamencoGeometries.arm, this.flamencoSkinMaterial)
+    const leftSleeve = new THREE.Mesh(this.flamencoGeometries.sleeve, jacketMaterial)
+    const rightSleeve = new THREE.Mesh(this.flamencoGeometries.sleeve, jacketMaterial)
+    const leftHand = new THREE.Mesh(this.flamencoGeometries.hand, this.flamencoSkinMaterial)
+    const rightHand = new THREE.Mesh(this.flamencoGeometries.hand, this.flamencoSkinMaterial)
+
+    leftArm.position.y = -0.13
+    rightArm.position.y = -0.13
+    leftSleeve.position.y = -0.05
+    rightSleeve.position.y = -0.05
+    leftHand.position.y = -0.27
+    rightHand.position.y = -0.27
+
+    leftArmGroup.position.set(-0.14, 0.68, 0)
+    rightArmGroup.position.set(0.14, 0.68, 0)
+    leftArmGroup.rotation.z = 0.2
+    rightArmGroup.rotation.z = -0.2
+    leftArmGroup.add(leftArm, leftSleeve, leftHand)
+    rightArmGroup.add(rightArm, rightSleeve, rightHand)
+    figure.add(leftArmGroup, rightArmGroup)
+
+    figure.userData.leftArm = leftArmGroup
+    figure.userData.rightArm = rightArmGroup
+    figure.userData.leftArmBaseRotation = 0.2
+    figure.userData.rightArmBaseRotation = -0.2
+    figure.userData.armSwingScale = 0.08
+    figure.scale.setScalar(0.72)
+
+    return figure
+  }
+
   createFacadeMaterial(color, emissiveIntensity = 0.12) {
     return new THREE.MeshStandardMaterial({
       color,
@@ -480,6 +827,21 @@ class FeriaExtras extends THREE.Group {
 
     this.garlandPointLights.forEach((light) => {
       light.intensity = lightIntensity
+    })
+
+    this.flamencoFigures.forEach((figure) => {
+      const phase = figure.userData.swingPhase
+      const sway = Math.sin(lightTime * 1.65 + phase)
+      figure.rotation.y = figure.userData.baseRotationY + sway * figure.userData.swingIntensity
+      figure.position.y = figure.userData.baseY + Math.sin(lightTime * 2.7 + phase) * 0.015
+
+      if (figure.userData.leftArm && figure.userData.rightArm) {
+        const leftBase = figure.userData.leftArmBaseRotation ?? 0.32
+        const rightBase = figure.userData.rightArmBaseRotation ?? -0.32
+        const armSwingScale = figure.userData.armSwingScale ?? 0.14
+        figure.userData.leftArm.rotation.z = leftBase + sway * armSwingScale
+        figure.userData.rightArm.rotation.z = rightBase - sway * armSwingScale
+      }
     })
   }
 }
