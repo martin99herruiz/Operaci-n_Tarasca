@@ -1,254 +1,277 @@
 <!doctype html>
 <html>
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Operación Tarasca: Memoria</title>
-<style>
-/* Embedded CSS from memoria_estilo.css */
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Operación Tarasca: Memoria</title>
+    <style>
+        /* Embedded CSS from memoria_estilo.css */
 
-* { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
-body {
-  font-family: "Times New Roman", Times, serif;
-  font-size: 11pt;
-  line-height: 1.52;
-  letter-spacing: 0.01em;
-  color: #000;
-  margin: 0;
-  padding: 0;
-}
+        body {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11pt;
+            line-height: 1.52;
+            letter-spacing: 0.01em;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
 
-.cover {
-  page-break-after: always;
-  break-after: page;
-  height: 23.5cm;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  justify-content: center;
-  padding: 0.5cm 1.8cm;
-}
+        .cover {
+            page-break-after: always;
+            break-after: page;
+            height: 23.5cm;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            justify-content: center;
+            padding: 0.5cm 1.8cm;
+        }
 
-.cv-title {
-  font-size: 24pt;
-  font-weight: bold;
-  max-width: 15cm;
-  margin-bottom: 1.9cm;
-}
+        .cv-title {
+            font-size: 24pt;
+            font-weight: bold;
+            max-width: 15cm;
+            margin-bottom: 1.9cm;
+        }
 
-.cv-logo {
-  width: 7.1cm;
-  max-width: 100%;
-  height: auto;
-  margin-bottom: 1.35cm;
-}
+        .cv-logo {
+            width: 7.1cm;
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 1.35cm;
+        }
 
-.cv-course {
-  font-size: 12.4pt;
-  font-weight: bold;
-  margin-bottom: 0.25cm;
-}
+        .cv-course {
+            font-size: 12.4pt;
+            font-weight: bold;
+            margin-bottom: 0.25cm;
+        }
 
-.cv-group {
-  font-size: 11.4pt;
-  margin-bottom: 0.6cm;
-}
+        .cv-group {
+            font-size: 11.4pt;
+            margin-bottom: 0.6cm;
+        }
 
-.cv-author {
-  font-size: 11.2pt;
-  margin-bottom: 0.14cm;
-}
+        .cv-author {
+            font-size: 11.2pt;
+            margin-bottom: 0.14cm;
+        }
 
-@page {
-  size: A4;
-  margin: 12mm 14mm 14mm 14mm;
-}
+        @page {
+            size: A4;
+            margin: 12mm 14mm 14mm 14mm;
+        }
 
-@media print {
-  html, body { margin: 0; padding: 0; }
-  body { margin: 0; padding: 0; }
-  #content {
-    margin: 0;
-    padding: 0;
-    max-width: none;
-  }
-}
+        @media print {
 
-#content {
-  margin: 0 auto;
-  max-width: 182mm;
-  padding: 7mm 5mm 0 5mm;
-  hyphens: auto;
-}
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+            }
 
-#content h1 {
-  font-size: 18pt;
-  font-weight: bold;
-  margin-top: 0.35cm;
-  margin-bottom: 0.22cm;
-  page-break-after: avoid;
-}
+            body {
+                margin: 0;
+                padding: 0;
+            }
 
-#content h2 {
-  font-size: 14pt;
-  font-weight: bold;
-  margin-top: 0.65cm;
-  margin-bottom: 0.22cm;
-  margin-left: 0.6cm;
-  text-indent: 0.22cm;
-  page-break-after: avoid;
-}
+            #content {
+                margin: 0;
+                padding: 0;
+                max-width: none;
+            }
+        }
 
-#content h3 {
-  font-size: 12pt;
-  font-weight: bold;
-  margin-top: 0.4cm;
-  margin-bottom: 0.15cm;
-  margin-left: 0.8cm;
-  text-indent: 0.18cm;
-  page-break-after: avoid;
-}
+        #content {
+            margin: 0 auto;
+            max-width: 182mm;
+            padding: 7mm 5mm 0 5mm;
+            hyphens: auto;
+        }
 
-#content h4 {
-  font-size: 11.5pt;
-  font-weight: bold;
-  margin-top: 0.28cm;
-  margin-bottom: 0.12cm;
-  margin-left: 1cm;
-  text-indent: 0.15cm;
-  page-break-after: avoid;
-}
+        #content h1 {
+            font-size: 18pt;
+            font-weight: bold;
+            margin-top: 0.35cm;
+            margin-bottom: 0.22cm;
+            page-break-after: avoid;
+        }
 
-#content p {
-  margin: 0.18cm 0;
-  margin-left: 0.9cm;
-  text-indent: 0.9cm;
-  text-align: justify;
-}
+        #content h2 {
+            font-size: 14pt;
+            font-weight: bold;
+            margin-top: 0.65cm;
+            margin-bottom: 0.22cm;
+            margin-left: 0.6cm;
+            text-indent: 0.22cm;
+            page-break-after: avoid;
+        }
 
-#content ul, #content ol {
-  margin: 0.18cm 0;
-  margin-left: 1.35cm;
-  padding-left: 0.55cm;
-}
+        #content h3 {
+            font-size: 12pt;
+            font-weight: bold;
+            margin-top: 0.4cm;
+            margin-bottom: 0.15cm;
+            margin-left: 0.8cm;
+            text-indent: 0.18cm;
+            page-break-after: avoid;
+        }
 
-#content li {
-  margin: 0.09cm 0;
-}
+        #content h4 {
+            font-size: 11.5pt;
+            font-weight: bold;
+            margin-top: 0.28cm;
+            margin-bottom: 0.12cm;
+            margin-left: 1cm;
+            text-indent: 0.15cm;
+            page-break-after: avoid;
+        }
 
-#content table {
-  width: calc(100% - 1.15cm);
-  border-collapse: collapse;
-  margin: 0.28cm 0;
-  margin-left: 0.9cm;
-  font-size: 10.2pt;
-}
+        #content p {
+            margin: 0.18cm 0;
+            margin-left: 0.9cm;
+            text-indent: 0.9cm;
+            text-align: justify;
+        }
 
-#content table th, #content table td {
-  border: 1px solid #000;
-  padding: 0.18cm 0.22cm;
-  text-align: left;
-}
+        #content ul,
+        #content ol {
+            margin: 0.18cm 0;
+            margin-left: 1.35cm;
+            padding-left: 0.55cm;
+        }
 
-#content table th {
-  background-color: #f5efe4;
-  font-weight: bold;
-}
+        #content li {
+            margin: 0.09cm 0;
+        }
 
-#content pre, #content code {
-  font-family: "Courier New", monospace;
-  font-size: 10pt;
-  background-color: transparent;
-  padding: 0.05cm 0.08cm;
-  overflow-x: auto;
-  page-break-inside: avoid;
-  color: #111;
-  text-decoration: none;
-  border: none;
-}
+        #content table {
+            width: calc(100% - 1.15cm);
+            border-collapse: collapse;
+            margin: 0.28cm 0;
+            margin-left: 0.9cm;
+            font-size: 10.2pt;
+        }
 
-#content pre {
-  padding: 0.25cm;
-  border: 1px solid #cdbfa7;
-  margin: 0.28cm 0;
-  margin-left: 0.9cm;
-  width: calc(100% - 1.15cm);
-  background-color: #fffdf9;
-}
+        #content table th,
+        #content table td {
+            border: 1px solid #000;
+            padding: 0.18cm 0.22cm;
+            text-align: left;
+        }
 
-#content blockquote {
-  margin: 0.28cm 0.9cm;
-  padding-left: 0.6cm;
-  border-left: 3px solid #ccc;
-  font-style: italic;
-}
+        #content table th {
+            background-color: #f5efe4;
+            font-weight: bold;
+        }
 
-#content strong {
-  font-weight: bold;
-}
+        #content pre,
+        #content code {
+            font-family: "Courier New", monospace;
+            font-size: 10pt;
+            background-color: transparent;
+            padding: 0.05cm 0.08cm;
+            overflow-x: auto;
+            page-break-inside: avoid;
+            color: #111;
+            text-decoration: none;
+            border: none;
+        }
 
-#content em {
-  font-style: italic;
-}
+        #content pre {
+            padding: 0.25cm;
+            border: 1px solid #cdbfa7;
+            margin: 0.28cm 0;
+            margin-left: 0.9cm;
+            width: calc(100% - 1.15cm);
+            background-color: #fffdf9;
+        }
 
-#content hr {
-  display: none;
-}
+        #content blockquote {
+            margin: 0.28cm 0.9cm;
+            padding-left: 0.6cm;
+            border-left: 3px solid #ccc;
+            font-style: italic;
+        }
 
-#content a {
-  color: #111;
-  text-decoration: none;
-}
+        #content strong {
+            font-weight: bold;
+        }
 
-#content figure {
-  margin: 0.3cm 0.5cm 0.45cm 0.5cm;
-  page-break-inside: avoid;
-}
+        #content em {
+            font-style: italic;
+        }
 
-#content figcaption {
-  margin-top: 0.14cm;
-  font-size: 10pt;
-  text-align: center;
-  color: #111;
-}
+        #content hr {
+            display: none;
+        }
 
-.pickup-grid {
-  margin: 0.15cm 0 0.2cm 0.9cm;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.3cm;
-}
+        #content a {
+            color: #111;
+            text-decoration: none;
+        }
 
-.pickup-grid img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border: 1px solid #b9ab90;
-  background: #fff;
-}
+        #content figure {
+            margin: 0.3cm 0.5cm 0.45cm 0.5cm;
+            page-break-inside: avoid;
+        }
 
-#md { display: none; }
+        #content figcaption {
+            margin-top: 0.14cm;
+            font-size: 10pt;
+            text-align: center;
+            color: #111;
+        }
 
-</style>
+        .pickup-grid {
+            margin: 0.15cm 0 0.2cm 0.9cm;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.3cm;
+        }
+
+        .pickup-grid img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border: 1px solid #b9ab90;
+            background: #fff;
+        }
+
+        #md {
+            display: none;
+        }
+    </style>
 </head>
+
 <body>
 
-<div class="cover">
-  <div class="cv-title">Operación Tarasca<br/>Laberinto de Volantes</div>
-  <img src="../UGR-MARCA-01-color.png" alt="Escudo UGR" class="cv-logo">
-  <div class="cv-course">Asignatura: Sistemas Gráficos (SG)</div>
-  <div class="cv-group">Grado en Ingeniería Informática, 2024–2025</div>
-  <div style="margin-top: 2cm; font-size: 11pt;">
-    <div class="cv-author"><strong>María Megías Moyano</strong></div>
-    <div class="cv-author"><strong>Martín Hernández Ruiz</strong></div>
-  </div>
-</div>
+    <div class="cover">
+        <div class="cv-title">Operación Tarasca<br />Laberinto de Volantes</div>
+        <img src="../UGR-MARCA-01-color.png" alt="Escudo UGR" class="cv-logo">
+        <div class="cv-course">Asignatura: Sistemas Gráficos (SG)</div>
+        <div class="cv-group">Grado en Ingeniería Informática, 2024–2025</div>
+        <div style="margin-top: 2cm; font-size: 11pt;">
+            <textarea id="md"># Operación Tarasca: Laberinto de Volantes
 
-<div id="content"></div>
+**Autores:** María Megías Moyano y Martín Hernández Ruiz  
+**Asignatura:** Sistemas Gráficos (SG)  
+**Curso:** 2024–2025
+</textarea>
 
-<textarea id="md"># Operación Tarasca: Laberinto de Volantes
+        </div>
+    </div>
+
+    <div id="content"></div>
+
+    <textarea id="md"># Operación Tarasca: Laberinto de Volantes
 
 **Autores:** María Megías Moyano y Martín Hernández Ruiz  
 **Asignatura:** Sistemas Gráficos (SG)  
@@ -556,16 +579,17 @@ El proyecto integra satisfactoriamente conceptos centrales de gráficos 3D en ti
 - three-bvh-csg (Boolean CSG Operations)
 </textarea>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const mdTextarea = document.getElementById('md');
-  const contentDiv = document.getElementById('content');
-  
-  const markdown = mdTextarea.value;
-  contentDiv.innerHTML = marked.parse(markdown);
-});
-</script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const mdTextarea = document.getElementById('md');
+            const contentDiv = document.getElementById('content');
+
+            const markdown = mdTextarea.value;
+            contentDiv.innerHTML = marked.parse(markdown);
+        });
+    </script>
 
 </body>
+
 </html>
